@@ -1,5 +1,5 @@
-import 'package:customer_app/features/auth/presentation/pages/login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 
 // نموذج يمثل بيانات كل صفحة
 class OnboardingContent {
@@ -146,14 +146,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: ElevatedButton(
                                 onPressed: () {
                                   if (currentIndex == contents.length - 1) {
-                                    // الانتقال لشاشة تسجيل الدخول أو الرئيسية
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const LoginScreen(),
-                                      ),
-                                    );
+                                    // --- التعديل هنا: الانتقال باستخدام go_router ---
+                                    context.go('/location-access');
                                   } else {
                                     _controller.nextPage(
                                       duration: const Duration(
@@ -201,7 +195,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             right: 20,
             child: TextButton(
               onPressed: () {
-                // الانتقال مباشرة إلى الشاشة الرئيسية أو تسجيل الدخول
+                // --- التعديل هنا: الانتقال مباشرة باستخدام go_router ---
+                context.go('/location-access');
               },
               child: const Row(
                 children: [

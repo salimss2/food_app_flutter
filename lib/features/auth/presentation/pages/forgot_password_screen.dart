@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
+
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
-import 'verification_screen.dart'; // سنقوم بإنشائها لاحقاً أو تأكد من وجودها
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -38,13 +39,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       );
 
-      // الانتقال لصفحة التحقق بعد وقت قصير
+      // الانتقال لصفحة التحقق بعد وقت قصير باستخدام go_router
       Future.delayed(const Duration(seconds: 1), () {
-        // تأكد من أن VerificationScreen موجودة أو قم بإنشائها
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const VerificationScreen()),
-        );
+        if (mounted) {
+          context.push('/verification');
+        }
       });
     }
   }
@@ -74,7 +73,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               backgroundColor: Colors.white.withOpacity(0.1),
                               child: IconButton(
                                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                                onPressed: () => Navigator.pop(context),
+                                onPressed: () => context.pop(), // الرجوع باستخدام go_router
                               ),
                             ),
                           ),

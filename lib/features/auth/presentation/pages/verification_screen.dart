@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
+
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
 
@@ -35,7 +37,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Verifying code: $code'), backgroundColor: const Color(0xFF0F55E8)),
       );
-      // هنا تضع منطق التحقق (API)
+      // هنا تضع منطق التحقق (API) لاحقاً
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter the full 4-digit code'), backgroundColor: Colors.redAccent),
@@ -68,7 +70,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               backgroundColor: Colors.white.withOpacity(0.1),
                               child: IconButton(
                                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                                onPressed: () => Navigator.pop(context),
+                                onPressed: () => context.pop(), // الرجوع باستخدام go_router
                               ),
                             ),
                           ),

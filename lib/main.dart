@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/api/dio_client.dart'; 
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
-import 'features/startup/presentation/pages/animated_splash_screen.dart';
+import 'core/routing/app_router.dart'; // <-- استيراد ملف الخريطة المركزي
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,14 +32,18 @@ class MyApp extends StatelessWidget {
           create: (context) => AuthBloc(authRepository)..add(AppStarted()),
         ),
       ],
-      child: MaterialApp(
+      // التعديل الأهم: استخدام MaterialApp.router
+      child: MaterialApp.router(
         title: 'FastGrab',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
-          fontFamily: 'Cairo', // توحيد الخط هنا إذا أردت
+          fontFamily: 'Cairo', // توحيد الخط
         ),
-        home: const AnimatedSplashScreen(), 
+        // ربط التطبيق بملف التوجيه
+        routerConfig: AppRouter.router, 
+        
+        // ملاحظة: تم حذف خاصية 'home:' لأن الـ router هو من يقرر شاشة البداية الآن
       ),
     );
   }

@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'package:customer_app/features/startup/presentation/pages/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 
 import '../../../../core/widgets/custom_background.dart';
-// استورد الشاشة التي تريد الانتقال إليها بعد التحميل هنا (مثلاً Login أو Home)
 
 class AnimatedSplashScreen extends StatefulWidget {
   const AnimatedSplashScreen({super.key});
@@ -42,15 +41,13 @@ class _AnimatedSplashScreenState extends State<AnimatedSplashScreen> with Single
     // 4. تشغيل الأنيميشن
     _animationController.forward();
 
-    // 5. الانتقال للشاشة التالية بعد 3.5 ثوانٍ (إعطاء وقت للأنيميشن لينتهي)
+    // 5. الانتقال للشاشة التالية بعد 3.5 ثوانٍ
     Timer(const Duration(milliseconds: 3500), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          // استبدل LoginScreen() بالشاشة التي تريدها (سواء SplashScreen القديمة أو Login أو Home)
-          builder: (context) => const SplashScreen(), 
-        ),
-      );
+      // التأكد من أن الشاشة لا تزال معروضة قبل الانتقال لتجنب الأخطاء
+      if (mounted) {
+        // الانتقال للشاشة التالية (قم بتغيير '/location-access' للمسار الذي تريده مثل '/login' أو '/onboarding')
+        context.go('/location-access'); 
+      }
     });
   }
 

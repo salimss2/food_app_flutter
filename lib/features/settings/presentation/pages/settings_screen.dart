@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart'; // استيراد الـ BLoC
-import '../../../auth/presentation/pages/login_screen.dart'; // استيراد شاشة الدخول
-import 'about_app_screen.dart';
-import 'privacy_policy_screen.dart';
-import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -52,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Icons.arrow_back,
                             color: Colors.white,
                           ),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => context.pop(), // الرجوع باستخدام go_router
                         ),
                       ),
                       const SizedBox(width: 15),
@@ -82,12 +79,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.person_outline,
                         title: "تعديل الملف الشخصي",
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ProfileScreen(),
-                            ),
-                          );
+                          // الانتقال باستخدام go_router
+                          context.push('/profile');
                         },
                       ),
                       _buildSettingsTile(
@@ -148,31 +141,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.privacy_tip_outlined,
                         title: "سياسة الخصوصية",
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const PrivacyPolicyScreen(),
-                            ),
-                          );
+                          // الانتقال باستخدام go_router
+                          context.push('/privacy-policy');
                         },
                       ),
                       _buildSettingsTile(
-                        icon: Icons.info_outline, // تم تغيير الأيقونة لتناسب "حول التطبيق"
+                        icon: Icons.info_outline,
                         title: "حول التطبيق",
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AboutAppScreen(),
-                            ),
-                          );
+                          // الانتقال باستخدام go_router
+                          context.push('/about-app');
                         },
                       ),
 
                       const SizedBox(height: 40),
 
                       // زر تسجيل الخروج
-                      _buildLogoutButton(context), // تمرير الـ context هنا
+                      _buildLogoutButton(context),
 
                       const SizedBox(height: 20),
                       Center(
@@ -325,12 +310,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 1. إرسال حدث تسجيل الخروج للـ BLoC
           context.read<AuthBloc>().add(LogoutRequested());
 
-          // 2. إزالة كل الشاشات السابقة والعودة لشاشة الدخول
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (route) => false, // يزيل كل الشاشات (Home, Settings, إلخ)
-          );
+          // 2. العودة لشاشة الدخول ومسح ما سبق باستخدام go_router
+          context.go('/login');
         },
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -350,4 +331,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-} // القوس الأخير الصحيح
+}

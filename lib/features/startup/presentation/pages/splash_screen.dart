@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 import '../../../../core/widgets/custom_background.dart'; // استيراد الخلفية
-import 'onboarding_screen.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -53,12 +53,12 @@ class SplashScreen extends StatelessWidget {
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(12), // زاوية خارجية أكبر قليلاً
       // هذا التدرج هو سر اللمعان البارز
-      gradient: LinearGradient(
+      gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          const Color.fromARGB(255, 92, 56, 255).withOpacity(0.8), // لون أبيض ساطع جداً في الأعلى واليسار
-          const Color.fromARGB(255, 106, 100, 129).withOpacity(0.8), // لون أبيض أقل سطوعاً قليلاً في الأسفل واليمين ليعطي عمقاً
+          Color.fromARGB(204, 92, 56, 255), // لون أبيض ساطع جداً في الأعلى واليسار
+          Color.fromARGB(204, 106, 100, 129), // لون أبيض أقل سطوعاً قليلاً في الأسفل واليمين ليعطي عمقاً
         ],
       ),
       boxShadow: [
@@ -91,11 +91,8 @@ class SplashScreen extends StatelessWidget {
         ),
         child: ElevatedButton(
           onPressed: () {
-            // ضع هنا كود الانتقال للشاشة التالية
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-            );
+            // --- التعديل هنا: الانتقال باستخدام go_router ---
+            context.go('/onboarding');
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
@@ -131,4 +128,3 @@ class SplashScreen extends StatelessWidget {
   );
 }
 }
-

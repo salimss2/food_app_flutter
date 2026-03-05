@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // استيراد حزمة التوجيه
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
-import '../../../home/presentation/pages/home_screen.dart';
 import '../../data/user_model.dart';
 import '../bloc/auth_bloc.dart';
 
@@ -60,7 +60,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       // إرسال حدث التسجيل للـ BLoC
       context.read<AuthBloc>().add(SignUpRequested(user));
     }
-  } // تم إضافة قوس الإغلاق الذي كان مفقوداً هنا
+  } 
 
   @override
   Widget build(BuildContext context) {
@@ -68,11 +68,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       listener: (context, state) {
         if (state is Authenticated) {
           // انتقال للرئيسية عند نجاح التسجيل
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (route) => false,
-          );
+          context.go('/home');
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -105,7 +101,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 backgroundColor: Colors.white.withOpacity(0.1),
                                 child: IconButton(
                                   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                                  onPressed: () => Navigator.pop(context),
+                                  onPressed: () => context.pop(), // الرجوع باستخدام go_router
                                 ),
                               ),
                             ),
@@ -182,8 +178,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ),
                                     GestureDetector(
                                       onTap: () {
-                                        // العودة لشاشة تسجيل الدخول
-                                        Navigator.pop(context); 
+                                        // العودة لشاشة تسجيل الدخول باستخدام go_router
+                                        context.pop(); 
                                       },
                                       child: Text("LOG IN", 
                                         style: GoogleFonts.poppins(
@@ -211,7 +207,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
       ),
-    ); // تم ضبط أقواس الإغلاق هنا للـ BlocListener
+    ); 
   }
 
   // ودجت أيقونات التواصل الاجتماعي

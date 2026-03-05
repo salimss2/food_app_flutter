@@ -1,6 +1,8 @@
 import 'dart:ui'; // <-- هام جداً لتأثير الزجاج
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد go_router
+
 import '../../../../core/widgets/custom_background.dart';
 import '../widgets/home_drawer.dart';
 
@@ -15,6 +17,19 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
 
+  // ===========================================================================
+  // قائمة الأقسام 
+  // ===========================================================================
+  final List<Map<String, String>> _categories = [
+    {"name": "وجبات", "image": "assets/images/burger.png"}, 
+    {"name": "دجاج", "image": "assets/images/chicken.png"},
+    {"name": "رز", "image": "assets/images/rice.png"}, 
+    {"name": "المعجنات", "image": "assets/images/pizzaicon.png"}, 
+    {"name": "ايسكريم", "image": "assets/images/icecream.png"}, 
+    {"name": "عصائر", "image": "assets/images/juice.png"}, 
+    {"name": "حلويات", "image": "assets/images/cake.png"},
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // --- محتوى الصفحة القابل للتمرير ---
               SingleChildScrollView(
-                // زيادة المسافة السفلية لضمان عدم تغطية الشريط للمحتوى الأخير
                 padding: const EdgeInsets.only(bottom: 120),
                 child: SafeArea(
                   child: Padding(
@@ -40,13 +54,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 20),
                         _buildSearchBar(),
                         const SizedBox(height: 25),
-                        _buildSectionTitle("الأقسام", showSeeAll: true),
+                        
+                        // قسم الأقسام
+                        _buildSectionTitle("الأقسام", showSeeAll: false),
                         const SizedBox(height: 15),
-                        _buildCategoriesList(),
+                        _buildCategoriesList(), 
                         const SizedBox(height: 25),
+                        
+                        // العروض
                         _buildPromoBanner(),
                         const SizedBox(height: 25),
-                        _buildSectionTitle("جميع المطاعم", showSeeAll: true),
+                        
+                        // قسم جميع المطاعم
+                        _buildSectionTitle(
+                          "جميع المطاعم", 
+                          showSeeAll: true,
+                          onSeeAllTap: () {
+                            context.go('/restaurants');
+                          }
+                        ),
                         const SizedBox(height: 15),
                         _buildRestaurantList(),
                       ],
@@ -55,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // --- شريط التنقل السفلي العائم (المعدل) ---
+              // --- شريط التنقل السفلي العائم ---
               Align(
                 alignment: Alignment.bottomCenter,
                 child: _buildFloatingNavBar(),
@@ -68,17 +94,245 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ===========================================================================
-  // التعديلات الجديدة على الـ NavBar ليكون مطابقاً للسكرين شوت
+  // دالة عرض النافذة المنبثقة (Modal Drawer)
   // ===========================================================================
+  void _showAllCategoriesModal() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.4), 
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.85,
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6, 
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1A34).withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "جميع الأقسام",
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Expanded(
+                            child: GridView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              shrinkWrap: true,
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3, 
+                                childAspectRatio: 0.8, 
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 15,
+                              ),
+                              itemCount: _categories.length,
+                              itemBuilder: (context, index) {
+                                return _buildCategoryItem(
+                                  title: _categories[index]["name"]!,
+                                  child: Image.asset(
+                                    _categories[index]["image"]!,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context); // إغلاق النافذة المنبثقة
+                                    
+                                    // --- التعديل هنا داخل النافذة المنبثقة أيضاً ---
+                                    if (_categories[index]["name"] == "وجبات") {
+                                      context.push('/meals-list');
+                                    }
+                                  },
+                                  isGrid: true, 
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
+  // ===========================================================================
+  // قائمة الأقسام
+  // ===========================================================================
+  Widget _buildCategoriesList() {
+    return SizedBox(
+      height: 110,
+      child: Row(
+        children: [
+          _buildCategoryItem(
+            title: "كل الاقسام",
+            child: Icon(
+              Icons.grid_view_rounded, 
+              color: Colors.white.withOpacity(0.8), 
+              size: 35,
+            ),
+            onTap: _showAllCategoriesModal, 
+          ),
+          
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                return _buildCategoryItem(
+                  title: _categories[index]["name"]!,
+                  child: Image.asset(
+                    _categories[index]["image"]!,
+                    fit: BoxFit.contain,
+                  ),
+                  onTap: () {
+                    // --- التعديل الأهم هنا لربط قسم الوجبات بالصفحة ---
+                    if (_categories[index]["name"] == "وجبات") {
+                      context.push('/meals-list');
+                    }
+                    // يمكنك لاحقاً إضافة else if لبقية الأقسام
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryItem({
+    required String title,
+    required Widget child,
+    required VoidCallback onTap,
+    bool isGrid = false, 
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.only(left: isGrid ? 0 : 12.0), 
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 75,
+              height: 75,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1A34).withOpacity(0.60),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: child,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: GoogleFonts.cairo(
+                color: Colors.white, 
+                fontSize: 13, 
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // العناوين
+  // ===========================================================================
+  Widget _buildSectionTitle(String title, {bool showSeeAll = false, VoidCallback? onSeeAllTap}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.cairo(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (showSeeAll)
+          InkWell(
+            onTap: onSeeAllTap,
+            borderRadius: BorderRadius.circular(5),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Text(
+                "الكل",
+                style: GoogleFonts.cairo(
+                  color: Colors.white54, 
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // شريط التنقل السفلي
+  // ===========================================================================
   Widget _buildFloatingNavBar() {
-    // استخدام ClipRRect لقص تأثير التمويه داخل الحواف الدائرية
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 30), // هوامش خارجية
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
       child: Container(
-        height: 75, // زيادة الارتفاع قليلاً ليناسب شكل الكبسولة
+        height: 75,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(35), // حواف دائرية كبيرة (شكل كبسولة)
+          borderRadius: BorderRadius.circular(35),
           boxShadow: [
              BoxShadow(
               color: const Color.fromARGB(255, 54, 37, 124).withOpacity(0.8),
@@ -90,22 +344,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: ClipRRect(
            borderRadius: BorderRadius.circular(35),
-           // تطبيق التمويه الحقيقي على الخلفية
            child: BackdropFilter(
-             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15), // قوة التمويه
+             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
              child: Container(
                padding: const EdgeInsets.symmetric(horizontal: 15),
                decoration: BoxDecoration(
-                 // لون الخلفية الداكن والشفاف
                  color: const Color(0xFF1E1A34).withOpacity(0.1),
                  borderRadius: BorderRadius.circular(35),
-                 // إطار رفيع جداً وشفاف
                  border: Border.all(color: Colors.white.withOpacity(0.7), width: 1),
                ),
                child: Row(
                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                  children: [
-                   // نمرر الأيقونة المعبأة (Selected) والمفرغة (Unselected)
                    _navItem(selectedIcon: Icons.manage_search, unselectedIcon: Icons.manage_search_outlined, label: "البحث", index: 1),
                    _navItem(selectedIcon: Icons.shopping_cart, unselectedIcon: Icons.shopping_cart_outlined, label: "السلة", index: 2),
                    _navItem(selectedIcon: Icons.home, unselectedIcon: Icons.home_outlined, label: "الرئيسية", index: 0),
@@ -120,18 +370,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ودجت العنصر الواحد في الشريط (المعدل)
   Widget _navItem({
-    required IconData selectedIcon,   // الأيقونة المعبأة
-    required IconData unselectedIcon, // الأيقونة المفرغة
+    required IconData selectedIcon,
+    required IconData unselectedIcon,
     required String label,
     required int index,
   }) {
     final isSelected = _selectedIndex == index;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      // استخدام Container شفاف لتوسيع منطقة الضغط
+      onTap: () {
+        if (isSelected) return;
+
+        if (index == 1) {
+          context.go('/restaurants');
+        } else if (index == 4) {
+          context.go('/profile');
+        } else {
+          setState(() => _selectedIndex = index);
+        }
+      },
       child: Container(
         color: Colors.transparent, 
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -139,37 +397,24 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // منطق الأيقونة: إذا تم الاختيار، نعرض الأيقونة المعبأة مع تدرج لوني
             if (isSelected)
               ShaderMask(
                 shaderCallback: (Rect bounds) {
                   return const LinearGradient(
-                    colors: [Color(0xFF0F55E8), Color.fromARGB(255, 130, 87, 199)], // ألوان البراند
+                    colors: [Color(0xFF0F55E8), Color.fromARGB(255, 130, 87, 199)],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ).createShader(bounds);
                 },
-                child: Icon(
-                  selectedIcon, // استخدام الأيقونة المعبأة
-                  color: Colors.white, // يجب أن يكون اللون أبيض ليعمل الـ ShaderMask
-                  size: 26,
-                ),
+                child: Icon(selectedIcon, color: Colors.white, size: 26),
               )
             else
-              // إذا لم يتم الاختيار، نعرض الأيقونة المفرغة باللون الرمادي
-              Icon(
-                unselectedIcon, // استخدام الأيقونة المفرغة
-                color: Colors.white54,
-                size: 26,
-              ),
+              Icon(unselectedIcon, color: Colors.white54, size: 26),
         
             const SizedBox(height: 4),
-            
-            // منطق النص
             Text(
               label,
               style: GoogleFonts.cairo(
-                // النص المختار يأخذ لوناً أزرق صريحاً (التدرج على النصوص الصغيرة لا يبدو جيداً)
                 color: isSelected ? const Color(0xFF0F55E8) : Colors.white54,
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -182,9 +427,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ===========================================================================
-  // بقية الودجت (الهيدر، البحث، القوائم) كما هي بدون تغيير
+  // بقية الودجت
   // ===========================================================================
-
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -251,65 +495,6 @@ class _HomeScreenState extends State<HomeScreen> {
           contentPadding: const EdgeInsets.symmetric(vertical: 15),
         ),
       ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, {bool showSeeAll = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.cairo(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        if (showSeeAll)
-          Text(
-            "الكل",
-            style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCategoriesList() {
-    final categories = [
-      {"name": "برجر", "image": "assets/images/burger.png"},
-      {"name": "حلى", "image": "assets/images/cake.png"},
-      {"name": "دجاج", "image": "assets/images/chicken.png"},
-      {"name": "بيتزا", "image": "assets/images/pizzaicon.png"},
-    ];
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: categories.map((cat) {
-        return Column(
-          children: [
-            Container(
-              width: 65,
-              height: 65,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1A34).withOpacity(0.60),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Image.asset(
-                cat["image"]!,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              cat["name"]!,
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 18),
-            ),
-          ],
-        );
-      }).toList(),
     );
   }
 
@@ -429,68 +614,73 @@ class _HomeScreenState extends State<HomeScreen> {
       shrinkWrap: true,
       itemCount: 4,
       itemBuilder: (context, index) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 15),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0C0C26).withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                 Colors.white.withOpacity(0.05),
-                 Colors.transparent,
-              ],
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.favorite_border, color: Colors.white54),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "مذاقي السياحي",
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      "أمام المملكة مول",
-                      style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12),
-                    ),
-                    Row(
-                      children: const [
-                        Icon(Icons.star, color: Colors.amber, size: 18),
-                        Icon(Icons.star, color: Colors.amber, size: 18),
-                        Icon(Icons.star, color: Colors.amber, size: 18),
-                        Icon(Icons.star, color: Colors.amber, size: 18),
-                        Icon(Icons.star, color: Colors.amber, size: 18),
-                      ],
-                    )
-                  ],
-                ),
+        return GestureDetector(
+          onTap: () {
+            context.push('/restaurant-detail');
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 15),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0C0C26).withOpacity(0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                   Colors.white.withOpacity(0.05),
+                   Colors.transparent,
+                ],
               ),
-              const SizedBox(width: 15),
-              Container(
-                width:  90,
-                height: 90,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.amber.withOpacity(0.5)),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/dish.png'),
-                    fit: BoxFit.cover,
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.favorite_border, color: Colors.white54),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "مذاقي السياحي",
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        "أمام المملكة مول",
+                        style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12),
+                      ),
+                      Row(
+                        children: const [
+                          Icon(Icons.star, color: Colors.amber, size: 18),
+                          Icon(Icons.star, color: Colors.amber, size: 18),
+                          Icon(Icons.star, color: Colors.amber, size: 18),
+                          Icon(Icons.star, color: Colors.amber, size: 18),
+                          Icon(Icons.star, color: Colors.amber, size: 18),
+                        ],
+                      )
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 15),
+                Container(
+                  width:  90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/dish.png'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

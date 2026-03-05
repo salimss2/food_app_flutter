@@ -1,12 +1,10 @@
-import 'package:customer_app/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:customer_app/features/settings/presentation/pages/profile_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // استيراد البلوك
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; 
+import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 
-import '../../../settings/presentation/pages/settings_screen.dart';
-// تأكد من مسار استيراد ملف AuthBloc الصحيح لديك
+import 'package:customer_app/features/auth/presentation/bloc/auth_bloc.dart';
 
 class HomeDrawer extends StatelessWidget {
   const HomeDrawer({super.key});
@@ -14,8 +12,8 @@ class HomeDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.transparent, // الخلفية الأساسية شفافة
-      elevation: 0, // إزالة الظل الافتراضي
+      backgroundColor: Colors.transparent, 
+      elevation: 0, 
       width: MediaQuery.of(context).size.width * 0.80,
       child: Stack(
         children: [
@@ -90,7 +88,7 @@ class HomeDrawer extends StatelessWidget {
                             color: Colors.white,
                             size: 20,
                           ),
-                          onPressed: () => Navigator.pop(context), 
+                          onPressed: () => context.pop(), // الإغلاق باستخدام go_router
                         ),
                       ),
                     ),
@@ -118,14 +116,11 @@ class HomeDrawer extends StatelessWidget {
                           ),
                           const SizedBox(height: 15),
                           
-                          // ==========================================
-                          // التعديل هنا: جلب الاسم من بيانات الـ BLoC
-                          // ==========================================
+                          // جلب الاسم من بيانات الـ BLoC
                           BlocBuilder<AuthBloc, AuthState>(
                             builder: (context, state) {
-                              String userName = "زائر"; // اسم افتراضي
+                              String userName = "زائر"; 
                               
-                              // إذا كان مسجل الدخول، اسحب اسمه من المودل
                               if (state is Authenticated) {
                                 userName = state.user.name;
                               }
@@ -140,8 +135,6 @@ class HomeDrawer extends StatelessWidget {
                               );
                             },
                           ),
-                          // ==========================================
-                          
                         ],
                       ),
                     ),
@@ -164,13 +157,8 @@ class HomeDrawer extends StatelessWidget {
                       "الملف الشخصي",
                       isSelected: true,
                       onTap: () {
-                        Navigator.pop(context); 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfileScreen(),
-                          ),
-                        );
+                        context.pop(); // إغلاق القائمة الجانبية أولاً
+                        context.go('/profile'); // القفز لصفحة البروفايل
                       },
                     ),
                     _buildDrawerItem(Icons.history, "السجل", onTap: () {}),
@@ -212,13 +200,8 @@ class HomeDrawer extends StatelessWidget {
                       Icons.settings_outlined,
                       "الإعدادات والخصوصية",
                       onTap: () {
-                        Navigator.pop(context); 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SettingsScreen(),
-                          ),
-                        );
+                        context.pop(); // إغلاق القائمة الجانبية
+                        context.push('/settings'); // إضافة صفحة الإعدادات فوق الصفحة الحالية
                       },
                     ),
 

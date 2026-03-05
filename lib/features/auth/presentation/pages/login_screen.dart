@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // استيراد حزمة التوجيه
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
-import '../../../home/presentation/pages/home_screen.dart';
 import '../bloc/auth_bloc.dart';
-import 'forgot_password_screen.dart';
-import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,12 +49,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is Authenticated) {
-          // انتقال للرئيسية عند نجاح تسجيل الدخول
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-            (route) => false,
-          );
+          // انتقال للرئيسية عند نجاح تسجيل الدخول بمسح ما سبق
+          context.go('/home');
         } else if (state is AuthError) {
           // إظهار رسالة خطأ حمراء عند الفشل
           ScaffoldMessenger.of(context).showSnackBar(
@@ -179,10 +173,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     TextButton(
                                       onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-                                        );
+                                        // الانتقال لصفحة نسيان كلمة المرور
+                                        context.push('/forgot-password');
                                       },
                                       child: Text("Forgot Password", style: GoogleFonts.poppins(color: Colors.white, fontSize: 12)),
                                     ),
@@ -201,10 +193,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Text("Don't have an account? ", style: GoogleFonts.poppins(color: Colors.white54, fontSize: 12)),
                                     GestureDetector(
                                       onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                                        );
+                                        // الانتقال لصفحة إنشاء الحساب
+                                        context.push('/signup');
                                       },
                                       child: Text("SIGN UP", style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                                     ),
@@ -254,4 +244,4 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Icon(icon, color: Colors.white, size: 24),
     );
   }
-} // تم تصحيح القوس هنا ليكون } بدلاً من })
+}
