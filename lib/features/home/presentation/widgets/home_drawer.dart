@@ -1,13 +1,54 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart'; 
 import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:customer_app/features/auth/presentation/bloc/auth_bloc.dart';
 
-class HomeDrawer extends StatelessWidget {
+class HomeDrawer extends StatefulWidget {
   const HomeDrawer({super.key});
+
+  @override
+  State<HomeDrawer> createState() => _HomeDrawerState();
+}
+
+class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateMixin {
+  File? _profileImage;
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileImage();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..repeat();
+  }
+
+  Future<void> _loadProfileImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? imagePath = prefs.getString('saved_image_path');
+    
+    if (imagePath != null && imagePath.isNotEmpty) {
+      File savedImage = File(imagePath);
+      if (await savedImage.exists()) {
+        setState(() {
+          _profileImage = savedImage;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +58,7 @@ class HomeDrawer extends StatelessWidget {
       width: MediaQuery.of(context).size.width * 0.80,
       child: Stack(
         children: [
-          // 1. طبقة التمويه (Blur) واللون الشفاف
+          // 1. الخلفية الزجاجية
           Positioned.fill(
             child: ClipRRect(
               borderRadius: const BorderRadius.only(
@@ -41,18 +82,9 @@ class HomeDrawer extends StatelessWidget {
                       bottomLeft: Radius.circular(30),
                     ),
                     border: Border(
-                      left: BorderSide(
-                        color: Colors.white.withOpacity(0.15),
-                        width: 1,
-                      ),
-                      top: BorderSide(
-                        color: Colors.white.withOpacity(0.05),
-                        width: 1,
-                      ),
-                      bottom: BorderSide(
-                        color: Colors.white.withOpacity(0.05),
-                        width: 1,
-                      ),
+                      left: BorderSide(color: Colors.white.withOpacity(0.15), width: 1),
+                      top: BorderSide(color: Colors.white.withOpacity(0.05), width: 1),
+                      bottom: BorderSide(color: Colors.white.withOpacity(0.05), width: 1),
                     ),
                   ),
                 ),
@@ -63,10 +95,7 @@ class HomeDrawer extends StatelessWidget {
           // 2. المحتوى
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 20,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,53 +107,76 @@ class HomeDrawer extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withOpacity(0.1), 
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                          ),
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
                         ),
                         child: IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          onPressed: () => context.pop(), // الإغلاق باستخدام go_router
+                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                          onPressed: () => context.pop(), 
                         ),
                       ),
                     ),
 
                     const SizedBox(height: 20),
 
-                    // صورة البروفايل والاسم
+                    // قسم البروفايل مع الأنيميشن الدائري
                     Center(
                       child: Column(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF0F55E8), Color(0xFF5D12D2)],
+                          AnimatedBuilder(
+                            animation: _animationController,
+                            builder: (context, child) {
+                              final value1 = _animationController.value;
+                              final value2 = (value1 + 0.5) % 1.0;
+
+                              return Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Transform.scale(
+                                    scale: 1.0 + (value2 * 0.8),
+                                    child: Opacity(
+                                      opacity: (1.0 - value2) * 0.5,
+                                      child: _buildAnimatedRing(),
+                                    ),
+                                  ),
+                                  Transform.scale(
+                                    scale: 1.0 + (value1 * 0.8),
+                                    child: Opacity(
+                                      opacity: (1.0 - value1) * 0.5, 
+                                      child: _buildAnimatedRing(),
+                                    ),
+                                  ),
+                                  child!,
+                                ],
+                              );
+                            },
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  )
+                                ]
                               ),
-                            ),
-                            child: const CircleAvatar(
-                              radius: 40,
-                              backgroundImage: AssetImage(
-                                'assets/images/group.jpg',
+                              child: CircleAvatar(
+                                radius: 40,
+                                backgroundImage: _profileImage != null
+                                    ? FileImage(_profileImage!) as ImageProvider
+                                    : const AssetImage('assets/images/group.jpg'),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 15),
+
+                          const SizedBox(height: 25),
                           
-                          // جلب الاسم من بيانات الـ BLoC
                           BlocBuilder<AuthBloc, AuthState>(
                             builder: (context, state) {
                               String userName = "زائر"; 
-                              
                               if (state is Authenticated) {
                                 userName = state.user.name;
                               }
-
                               return Text(
                                 userName,
                                 style: GoogleFonts.cairo(
@@ -141,58 +193,36 @@ class HomeDrawer extends StatelessWidget {
 
                     const SizedBox(height: 40),
 
-                    // --- القائمة ---
+                    // القائمة
                     Text(
                       "القائمة",
-                      style: GoogleFonts.cairo(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        letterSpacing: 1,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12, letterSpacing: 1),
                     ),
                     const SizedBox(height: 10),
 
+                    // --- التعديل هنا: تم إزالة isSelected: true ليصبح زراً عادياً ---
                     _buildDrawerItem(
                       Icons.person_outline,
                       "الملف الشخصي",
-                      isSelected: true,
                       onTap: () {
-                        context.pop(); // إغلاق القائمة الجانبية أولاً
-                        context.go('/profile'); // القفز لصفحة البروفايل
+                        context.pop(); 
+                        context.push('/profile'); 
                       },
                     ),
-                    _buildDrawerItem(Icons.history, "السجل", onTap: () {}),
-                    _buildDrawerItem(
-                      Icons.account_balance_wallet_outlined,
-                      "المحفظة",
-                      onTap: () {},
-                    ),
-                    _buildDrawerItem(
-                      Icons.notifications_outlined,
-                      "الإشعارات",
-                      onTap: () {},
-                    ),
-                    _buildDrawerItem(
-                      Icons.favorite_border,
-                      "المفضلة",
-                      onTap: () {},
-                    ),
-                    _buildDrawerItem(
-                      Icons.card_giftcard,
-                      "دعوة صديق",
-                      onTap: () {},
-                    ),
+                    _buildDrawerItem(Icons.list_alt, "طلباتي", onTap: () {
+                      context.push('/orders'); 
+                    }),
+                    _buildDrawerItem(Icons.account_balance_wallet_outlined, "المحفظة", onTap: () {}),
+                    _buildDrawerItem(Icons.notifications_outlined, "الإشعارات", onTap: () {}),
+                    _buildDrawerItem(Icons.favorite_border, "المفضلة", onTap: () {}),
+                    _buildDrawerItem(Icons.card_giftcard, "دعوة صديق", onTap: () {}),
                     _buildDrawerItem(Icons.search, "بحث", onTap: () {}),
 
                     const SizedBox(height: 30),
 
                     Text(
                       "الإعدادات والدعم",
-                      style: GoogleFonts.cairo(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        letterSpacing: 1,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12, letterSpacing: 1),
                     ),
                     const SizedBox(height: 10),
 
@@ -200,16 +230,11 @@ class HomeDrawer extends StatelessWidget {
                       Icons.settings_outlined,
                       "الإعدادات والخصوصية",
                       onTap: () {
-                        context.pop(); // إغلاق القائمة الجانبية
-                        context.push('/settings'); // إضافة صفحة الإعدادات فوق الصفحة الحالية
+                        context.pop(); 
+                        context.push('/settings'); 
                       },
                     ),
-
-                    _buildDrawerItem(
-                      Icons.help_outline,
-                      "مركز المساعدة",
-                      onTap: () {},
-                    ),
+                    _buildDrawerItem(Icons.help_outline, "مركز المساعدة", onTap: () {}),
 
                     const SizedBox(height: 20),
                   ],
@@ -222,12 +247,21 @@ class HomeDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerItem(
-    IconData icon,
-    String title, {
-    bool isSelected = false,
-    VoidCallback? onTap,
-  }) {
+  Widget _buildAnimatedRing() {
+    return Container(
+      width: 80, 
+      height: 80,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withOpacity(0.5),
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title, {bool isSelected = false, VoidCallback? onTap}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: isSelected

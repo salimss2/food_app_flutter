@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../core/widgets/global_exit_wrapper.dart';
 
 class RestaurantsScreen extends StatefulWidget {
   const RestaurantsScreen({super.key});
@@ -16,56 +19,78 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   // تم تعيين الاندكس إلى 1 ليكون مطابقاً لزر "البحث / تصفح المطاعم"
   int _selectedIndex = 1;
 
-  final List<Map<String, dynamic>> restaurants = [
-    {"name": "مذاقي السياحي", "location": "أمام المكلا مول", "rating": 5},
-    {"name": "بروست الشراع", "location": "الشرج، الشارع العام", "rating": 4},
-    {"name": "مطعم السلام", "location": "فوه، المساكن", "rating": 5},
-    {"name": "بيتزا هت", "location": "المكلا، بجانب الخور", "rating": 3},
-  ];
+  List<dynamic> allRestaurants = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadRestaurants();
+  }
+
+  Future<void> loadRestaurants() async {
+    try {
+      final String response = await rootBundle.loadString(
+        'assets/data/mock_database.json',
+      );
+      final data = await json.decode(response);
+      setState(() {
+        allRestaurants = data['restaurants'];
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      debugPrint("Error loading restaurants: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Directionality(
-        textDirection: TextDirection.rtl,
-        child: CustomBackground(
-          child: Stack(
-            children: [
-              // --- محتوى الصفحة القابل للتمرير ---
-              SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 120),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 10),
+    return GlobalExitWrapper(
+      child: Scaffold(
+        body: Directionality(
+          textDirection: TextDirection.rtl,
+          child: CustomBackground(
+            child: Stack(
+              children: [
+                // --- محتوى الصفحة القابل للتمرير ---
+                SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 120),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10),
 
-                        // 1. شريط البحث
-                        _buildSearchBar(),
+                          // 1. شريط البحث
+                          _buildSearchBar(),
 
-                        const SizedBox(height: 25),
+                          const SizedBox(height: 25),
 
-                        // 2. التصنيفات
-                        _buildCategories(),
+                          // 2. التصنيفات
+                          _buildCategories(),
 
-                        const SizedBox(height: 25),
+                          const SizedBox(height: 25),
 
-                        // 3. قائمة المطاعم
-                        _buildRestaurantList(),
-                      ],
+                          // 3. قائمة المطاعم
+                          _buildRestaurantList(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // --- شريط التنقل السفلي العائم ---
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _buildFloatingNavBar(),
-              ),
-            ],
+                // --- شريط التنقل السفلي العائم ---
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: _buildFloatingNavBar(),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -157,77 +182,181 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   // 3. بطاقات المطاعم
   // ===========================================================================
   Widget _buildRestaurantList() {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.red));
+    }
+
+    if (allRestaurants.isEmpty) {
+      return Center(
+        child: Text(
+          "لا توجد مطاعم",
+          style: GoogleFonts.cairo(color: Colors.white),
+        ),
+      );
+    }
+
     return ListView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
-      itemCount: restaurants.length,
+      itemCount: allRestaurants.length,
       itemBuilder: (context, index) {
-        final restaurant = restaurants[index];
+        final restaurant = allRestaurants[index];
+        final String name = restaurant['name']?.toString() ?? 'اسم المطعم';
+        final String desc = restaurant['description']?.toString() ?? '';
+        final String image =
+            restaurant['imageUrl']?.toString() ??
+            'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80';
+        final double rating =
+            double.tryParse(restaurant['rating']?.toString() ?? '4.0') ?? 4.0;
+        final double parsedDistance =
+            double.tryParse(restaurant['distance']?.toString() ?? '2.5') ?? 2.5;
+        final bool isOpen = restaurant['isOpen'] ?? true;
+        final List<dynamic> tags = restaurant['tags'] ?? [];
+
         return GestureDetector(
           onTap: () {
-            context.push('/restaurant-detail');
+            context.push('/restaurant-detail', extra: restaurant);
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 15),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0C0C26).withOpacity(0.5),
+              color: const Color(0xFF1E1A34).withOpacity(0.5),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withOpacity(0.05)),
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [Colors.white.withOpacity(0.05), Colors.transparent],
-              ),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.favorite_border, color: Colors.white54),
-                const SizedBox(width: 15),
+                // --- اليمين: اللوجو والتقييم والمسافة ---
+                Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        image: DecorationImage(
+                          image: NetworkImage(image),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "${parsedDistance.toStringAsFixed(1)} كيلو",
+                      style: GoogleFonts.cairo(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                    Row(
+                      children: List.generate(
+                        5,
+                        (starIndex) => Icon(
+                          Icons.star,
+                          color: starIndex < rating.toInt()
+                              ? Colors.amber
+                              : Colors.white24,
+                          size: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(width: 12),
+
+                // --- الوسط: التفاصيل (الاسم، العنوان، التاجات) ---
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        restaurant["name"],
+                        name,
                         style: GoogleFonts.cairo(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        restaurant["location"],
+                        desc,
                         style: GoogleFonts.cairo(
                           color: Colors.white54,
-                          fontSize: 12,
+                          fontSize: 11,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      Row(
-                        children: List.generate(
-                          restaurant["rating"],
-                          (index) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                            size: 18,
-                          ),
-                        ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: tags
+                            .map(
+                              (tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.1),
+                                  ),
+                                ),
+                                child: Text(
+                                  tag.toString(),
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.white70,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 15),
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/images/dish.png'),
-                      fit: BoxFit.cover,
+
+                // --- اليسار: حالة المطعم والمفضلة ---
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (isOpen)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFE69B35,
+                          ).withOpacity(0.2), // برتقالي شفاف
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFE69B35).withOpacity(0.5),
+                          ),
+                        ),
+                        child: Text(
+                          "مفتوح",
+                          style: GoogleFonts.cairo(
+                            color: const Color(0xFFE69B35),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 15),
+                    const Icon(
+                      Icons.favorite_border,
+                      color: Color(0xFFFF5555),
+                      size: 22,
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -331,6 +460,9 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         if (index == 0) {
           // الانتقال إلى الصفحة الرئيسية
           context.go('/home');
+        } else if (index == 2) {
+          // الانتقال إلى سلة المشتريات
+          context.push('/cart');
         } else if (index == 4) {
           // الانتقال إلى صفحة الملف الشخصي
           context.go('/profile');

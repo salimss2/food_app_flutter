@@ -17,14 +17,14 @@ class MapPickerScreen extends StatefulWidget {
 
 class _MapPickerScreenState extends State<MapPickerScreen> {
   final MapController _mapController = MapController();
-  final TextEditingController _searchController = TextEditingController(); 
-  
+  final TextEditingController _searchController = TextEditingController();
+
   // موقع الدبوس في منتصف الخريطة (افتراضياً صنعاء)
-  LatLng _mapCenterPosition = const LatLng(15.3694, 44.1910); 
-  
+  LatLng _mapCenterPosition = const LatLng(15.3694, 44.1910);
+
   // موقع الهاتف الفعلي (النقطة الزرقاء)
-  LatLng? _actualDeviceLocation; 
-  
+  LatLng? _actualDeviceLocation;
+
   bool _isLoadingLocation = true;
 
   @override
@@ -46,7 +46,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      
+
       setState(() {
         _actualDeviceLocation = LatLng(position.latitude, position.longitude);
         _mapCenterPosition = _actualDeviceLocation!;
@@ -63,32 +63,37 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   // --- دالة البحث عن مكان ---
   Future<void> _searchLocation(String query) async {
     if (query.trim().isEmpty) return;
-    
+
     FocusScope.of(context).unfocus();
     setState(() => _isLoadingLocation = true);
 
     try {
-      final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=1');
-      
-      final response = await http.get(url, headers: {
-        'User-Agent': 'com.dfood.app', 
-      });
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=1',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'com.dfood.app'},
+      );
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
-        
+
         if (data.isNotEmpty) {
           final double lat = double.parse(data[0]['lat']);
           final double lon = double.parse(data[0]['lon']);
           final LatLng searchedLocation = LatLng(lat, lon);
-          
+
           setState(() {
             _mapCenterPosition = searchedLocation;
           });
-          
+
           _mapController.move(searchedLocation, 15.0);
         } else {
-          _showSnackBar("لم يتم العثور على المكان، حاول كتابة اسم مدينة أو شارع معروف.");
+          _showSnackBar(
+            "لم يتم العثور على المكان، حاول كتابة اسم مدينة أو شارع معروف.",
+          );
         }
       }
     } catch (e) {
@@ -99,32 +104,40 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   }
 
   // --- دالة تأكيد الموقع (تم التعديل هنا للرجوع للصفحة المطلوبة) ---
+  // --- دالة تأكيد الموقع (محدثة لتكون ذكية) ---
   Future<void> _confirmLocation() async {
     setState(() => _isLoadingLocation = true);
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      String formattedLocation = "${_mapCenterPosition.latitude.toStringAsFixed(4)}° N, ${_mapCenterPosition.longitude.toStringAsFixed(4)}° E";
-      
+
+      String formattedLocation =
+          "${_mapCenterPosition.latitude.toStringAsFixed(4)}° N, ${_mapCenterPosition.longitude.toStringAsFixed(4)}° E";
+
       await prefs.setString('saved_location', formattedLocation);
       await prefs.setDouble('saved_lat', _mapCenterPosition.latitude);
       await prefs.setDouble('saved_lng', _mapCenterPosition.longitude);
 
-      // 1. إظهار رسالة النجاح المطلوبة
+      // 1. إظهار رسالة النجاح
       _showSnackBar('تم تحديد موقعك بنجاح', color: Colors.green);
-      
-      // 2. تأخير بسيط ليتمكن المستخدم من قراءة الرسالة
+
+      // 2. تأخير بسيط
       await Future.delayed(const Duration(seconds: 1));
-      
-      // 3. الانتقال إلى صفحة LoginScreen
+
+      // 3. التوجيه الذكي
       if (mounted) {
-        context.go('/login'); // استخدام go_router
+        if (context.canPop()) {
+          // إذا أتى من الملف الشخصي (يوجد شاشة سابقة في المكدس) سيرجع إليها
+          context.pop();
+        } else {
+          // إذا أتى من شاشات البداية (لا يوجد شاشة سابقة)، يكمل مساره لتسجيل الدخول
+          context.go('/login');
+        }
       }
     } catch (e) {
       _showSnackBar("حدث خطأ أثناء حفظ الموقع.");
     } finally {
-      setState(() => _isLoadingLocation = false);
+      if (mounted) setState(() => _isLoadingLocation = false);
     }
   }
 
@@ -161,11 +174,12 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                  urlTemplate:
+                      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
                   subdomains: const ['a', 'b', 'c', 'd'],
-                  userAgentPackageName: 'com.dfood.app', 
+                  userAgentPackageName: 'com.dfood.app',
                 ),
-                
+
                 if (_actualDeviceLocation != null)
                   MarkerLayer(
                     markers: [
@@ -196,7 +210,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             // 2. دبوس المنتصف
             Center(
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 40.0), 
+                padding: const EdgeInsets.only(bottom: 40.0),
                 child: Icon(
                   Icons.location_on,
                   size: 50,
@@ -221,7 +235,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.arrow_back, color: Colors.black),
-                        onPressed: () => context.pop(), // الرجوع باستخدام go_router
+                        onPressed: () =>
+                            context.pop(), // الرجوع باستخدام go_router
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -232,21 +247,35 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(25),
                           boxShadow: [
-                            BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2)),
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
                           ],
                         ),
                         child: TextField(
                           controller: _searchController,
                           textInputAction: TextInputAction.search,
-                          onSubmitted: _searchLocation, 
+                          onSubmitted: _searchLocation,
                           decoration: InputDecoration(
                             hintText: "ابحث عن مدينة، حي، شارع...",
-                            hintStyle: GoogleFonts.cairo(color: Colors.grey, fontSize: 14),
+                            hintStyle: GoogleFonts.cairo(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             prefixIcon: IconButton(
-                              icon: const Icon(Icons.search, color: Color(0xFF0F55E8)),
-                              onPressed: () => _searchLocation(_searchController.text),
+                              icon: const Icon(
+                                Icons.search,
+                                color: Color(0xFF0F55E8),
+                              ),
+                              onPressed: () =>
+                                  _searchLocation(_searchController.text),
                             ),
                           ),
                         ),
@@ -269,7 +298,10 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                     child: FloatingActionButton(
                       backgroundColor: Colors.white,
                       onPressed: _getUserCurrentLocation,
-                      child: const Icon(Icons.my_location, color: Color(0xFF1E1A34)),
+                      child: const Icon(
+                        Icons.my_location,
+                        color: Color(0xFF1E1A34),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -294,19 +326,23 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         ],
                       ),
                       child: Center(
-                        child: _isLoadingLocation 
-                        ? const SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            "تأكيد الموقع",
-                            style: GoogleFonts.cairo(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        child: _isLoadingLocation
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                "تأكيد الموقع",
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ),

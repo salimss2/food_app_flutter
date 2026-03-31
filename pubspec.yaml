@@ -51,6 +51,9 @@ dependencies:
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
   http: ^1.6.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  provider: ^6.1.2
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +81,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/data/mock_database.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

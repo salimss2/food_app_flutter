@@ -1,7 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
+import 'dart:convert';
 
 import '../../../../core/widgets/custom_background.dart';
 
@@ -13,53 +14,38 @@ class MealsListScreen extends StatefulWidget {
 }
 
 class _MealsListScreenState extends State<MealsListScreen> {
-  // بيانات وهمية مستوحاة من السكرين شوت
-  final List<Map<String, dynamic>> _meals = [
-    {
-      "restaurant": "بيت الشاورما",
-      "name": "شاورما ناشفل",
-      "time": "30 دقيقة",
-      "distance": "2.2 كم",
-      "isFreeDelivery": true,
-      "oldPrice": "38.66",
-      "newPrice": "29.00",
-      "image": "assets/images/burger.png", // استبدلها بصورة الوجبة
-      "logo": "assets/images/group.jpg",   // استبدلها بشعار المطعم
-    },
-    {
-      "restaurant": "بيت الشاورما",
-      "name": "عربي دجاج وشاورما دجاج ساندويش",
-      "time": "30 دقيقة",
-      "distance": "2.2 كم",
-      "isFreeDelivery": true,
-      "oldPrice": "48.30",
-      "newPrice": "28.98",
-      "image": "assets/images/chicken.png",
-      "logo": "assets/images/group.jpg",
-    },
-    {
-      "restaurant": "اللاهب",
-      "name": "وجبة ساندوتش تويستر",
-      "time": "25 دقيقة",
-      "distance": "4 كم",
-      "isFreeDelivery": true,
-      "oldPrice": "35.70",
-      "newPrice": "24.99",
-      "image": "assets/images/dish.png",
-      "logo": "assets/images/group.jpg",
-    },
-    {
-      "restaurant": "الطازج",
-      "name": "وجبة ساندويتش كباب سنغل",
-      "time": "15 دقيقة",
-      "distance": "1.8 كم",
-      "isFreeDelivery": true,
-      "oldPrice": "25.70",
-      "newPrice": "20.56",
-      "image": "assets/images/pizzaicon.png",
-      "logo": "assets/images/group.jpg",
-    },
-  ];
+  List<dynamic> allMeals = [];
+  bool isLoadingMeals = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchMeals();
+  }
+
+  Future<void> fetchMeals() async {
+    try {
+      final String response = await rootBundle.loadString('assets/data/mock_database.json');
+      final data = await json.decode(response);
+      final List<dynamic> restaurants = data['restaurants'] ?? [];
+      
+      List<dynamic> tempMeals = [];
+      for (var restaurant in restaurants) {
+        if (restaurant['menu'] != null) {
+          tempMeals.addAll(restaurant['menu']);
+        }
+      }
+      
+      setState(() {
+        allMeals = tempMeals;
+        isLoadingMeals = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoadingMeals = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,9 +57,7 @@ class _MealsListScreenState extends State<MealsListScreen> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               // 1. البانر العلوي (Hero Banner)
-              SliverToBoxAdapter(
-                child: _buildTopBanner(context),
-              ),
+              SliverToBoxAdapter(child: _buildTopBanner(context)),
 
               // 2. شريط البحث
               SliverToBoxAdapter(
@@ -86,26 +70,32 @@ class _MealsListScreenState extends State<MealsListScreen> {
               // 3. شبكة الوجبات (Grid View)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, // عمودين
-                    childAspectRatio: 0.58, // نسبة الطول للعرض لتناسب النصوص الكثيرة
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      return _buildMealCard(_meals[index]);
-                    },
-                    childCount: _meals.length,
-                  ),
-                ),
+                sliver: isLoadingMeals
+                    ? const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 50.0),
+                          child: Center(
+                            child: CircularProgressIndicator(color: Colors.red),
+                          ),
+                        ),
+                      )
+                    : SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2, // عمودين
+                              childAspectRatio:
+                                  0.58, // نسبة الطول للعرض لتناسب النصوص الكثيرة
+                              crossAxisSpacing: 15,
+                              mainAxisSpacing: 15,
+                            ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          return _buildMealCard(allMeals[index]);
+                        }, childCount: allMeals.length),
+                      ),
               ),
 
               // مسافة سفلية إضافية
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 40),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),
         ),
@@ -125,7 +115,9 @@ class _MealsListScreenState extends State<MealsListScreen> {
           width: double.infinity,
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/images/Pasta.png'), // ضع هنا صورة البانر الإعلاني
+              image: AssetImage(
+                'assets/images/Pasta.png',
+              ), // ضع هنا صورة البانر الإعلاني
               fit: BoxFit.cover,
             ),
           ),
@@ -137,14 +129,16 @@ class _MealsListScreenState extends State<MealsListScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.black.withOpacity(0.3),
-                  const Color(0xFF140C36).withOpacity(0.9), // لون الخلفية الداكنة
+                  const Color(
+                    0xFF140C36,
+                  ).withOpacity(0.9), // لون الخلفية الداكنة
                 ],
                 stops: const [0.3, 1.0],
               ),
             ),
           ),
         ),
-        
+
         // زر الرجوع الشفاف
         SafeArea(
           child: Padding(
@@ -155,11 +149,18 @@ class _MealsListScreenState extends State<MealsListScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white.withOpacity(0.2)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 8,
+                  ),
                 ],
               ),
               child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 onPressed: () => context.pop(), // الرجوع باستخدام go_router
               ),
             ),
@@ -186,12 +187,17 @@ class _MealsListScreenState extends State<MealsListScreen> {
                 children: [
                   Text(
                     "ابتداءً من ",
-                    style: GoogleFonts.cairo(color: Colors.white70, fontSize: 16),
+                    style: GoogleFonts.cairo(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
                   ),
                   Text(
                     "19 ر.ي",
                     style: GoogleFonts.cairo(
-                      color: const Color(0xFFFF5555), // لون أحمر أو برتقالي للفت الانتباه
+                      color: const Color(
+                        0xFFFF5555,
+                      ), // لون أحمر أو برتقالي للفت الانتباه
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -233,10 +239,14 @@ class _MealsListScreenState extends State<MealsListScreen> {
   // 3. كرت الوجبة (Glassmorphism Style)
   // ===========================================================================
   Widget _buildMealCard(Map<String, dynamic> meal) {
+    final String name = meal['name']?.toString() ?? 'وجبة';
+    final String image = meal['imageUrl']?.toString() ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
+    final double price = double.tryParse(meal['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0') ?? 0.0;
+    final String category = meal['category']?.toString() ?? '';
+
     return GestureDetector(
       onTap: () {
-        // --- التعديل هنا: الانتقال إلى صفحة تفاصيل الوجبة ---
-        context.push('/meal-detail'); 
+        context.push('/meal-detail', extra: meal);
       },
       child: Container(
         decoration: BoxDecoration(
@@ -260,15 +270,14 @@ class _MealsListScreenState extends State<MealsListScreen> {
               children: [
                 // صورة الوجبة
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                   child: Container(
                     height: 120,
                     width: double.infinity,
                     color: Colors.white.withOpacity(0.05),
-                    child: Image.asset(
-                      meal['image'],
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.network(image, fit: BoxFit.cover),
                   ),
                 ),
                 // شعار المطعم (دائري فوق الصورة)
@@ -281,8 +290,8 @@ class _MealsListScreenState extends State<MealsListScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
-                      image: DecorationImage(
-                        image: AssetImage(meal['logo']),
+                      image: const DecorationImage(
+                        image: AssetImage('assets/images/group.jpg'),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -298,25 +307,29 @@ class _MealsListScreenState extends State<MealsListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // اسم المطعم
+                    // اسم المطعم أو التصنيف
                     Text(
-                      meal['restaurant'],
-                      style: GoogleFonts.cairo(color: Colors.white54, fontSize: 10, height: 1.2),
+                      category.isNotEmpty ? category : "وجبات سريعة",
+                      style: GoogleFonts.cairo(
+                        color: Colors.white54,
+                        fontSize: 10,
+                        height: 1.2,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    
+
                     // اسم الوجبة
                     Text(
-                      meal['name'],
+                      name,
                       style: GoogleFonts.cairo(
-                        color: Colors.white, 
-                        fontSize: 13, 
+                        color: Colors.white,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         height: 1.2,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const Spacer(),
@@ -324,36 +337,56 @@ class _MealsListScreenState extends State<MealsListScreen> {
                     // الوقت والمسافة
                     Row(
                       children: [
-                        Icon(Icons.access_time_rounded, color: Colors.white54, size: 10),
+                        const Icon(
+                          Icons.access_time_rounded,
+                          color: Colors.white54,
+                          size: 10,
+                        ),
                         const SizedBox(width: 2),
                         Text(
-                          meal['time'],
-                          style: GoogleFonts.cairo(color: Colors.white54, fontSize: 10),
+                          "30 دقيقة",
+                          style: GoogleFonts.cairo(
+                            color: Colors.white54,
+                            fontSize: 10,
+                          ),
                         ),
                         const SizedBox(width: 5),
-                        Text("|", style: TextStyle(color: Colors.white24, fontSize: 10)),
+                        const Text(
+                          "|",
+                          style: TextStyle(color: Colors.white24, fontSize: 10),
+                        ),
                         const SizedBox(width: 5),
                         Text(
-                          meal['distance'],
-                          style: GoogleFonts.cairo(color: Colors.white54, fontSize: 10),
+                          "2.5 كم",
+                          style: GoogleFonts.cairo(
+                            color: Colors.white54,
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
 
                     // التوصيل المجاني
-                    if (meal['isFreeDelivery'])
-                      Row(
-                        children: [
-                          const Icon(Icons.delivery_dining, color: Colors.cyanAccent, size: 12),
-                          const SizedBox(width: 4),
-                          Text(
-                            "توصيل مجاني",
-                            style: GoogleFonts.cairo(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.delivery_dining,
+                          color: Colors.cyanAccent,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "توصيل مجاني",
+                          style: GoogleFonts.cairo(
+                            color: Colors.cyanAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                    
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 6),
                     Divider(color: Colors.white.withOpacity(0.05), height: 1),
                     const SizedBox(height: 6),
@@ -364,7 +397,7 @@ class _MealsListScreenState extends State<MealsListScreen> {
                       children: [
                         // السعر القديم (مشطوب)
                         Text(
-                          "${meal['oldPrice']} ر.ي",
+                          "${(price * 1.2).toStringAsFixed(0)} ر.ي",
                           style: GoogleFonts.poppins(
                             color: Colors.white38,
                             fontSize: 11,
@@ -373,9 +406,11 @@ class _MealsListScreenState extends State<MealsListScreen> {
                         ),
                         // السعر الجديد
                         Text(
-                          "${meal['newPrice']} ر.ي",
+                          "${price.toStringAsFixed(0)} ر.ي",
                           style: GoogleFonts.poppins(
-                            color: const Color(0xFFFF5555), // لون مميز للسعر المخفض
+                            color: const Color(
+                              0xFFFF5555,
+                            ),
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),

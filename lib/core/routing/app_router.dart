@@ -1,3 +1,4 @@
+import 'package:customer_app/features/home/presentation/widgets/orders_screen.dart';
 import 'package:go_router/go_router.dart';
 // --- استيراد شاشات البداية ---
 import '../../features/startup/presentation/pages/animated_splash_screen.dart';
@@ -19,6 +20,7 @@ import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/home/presentation/pages/restaurants_screen.dart';
 import '../../features/home/presentation/pages/meals_list_screen.dart'; // تأكد من صحة المسار
 import '../../features/home/presentation/pages/meal_detail_screen.dart'; // تأكد من صحة المسار
+import '../../features/home/presentation/pages/search_screen.dart'; // تأكد من دقة المسار
 
 // --- استيراد شاشات الإعدادات والبروفايل ---
 import '../../features/settings/presentation/pages/settings_screen.dart';
@@ -27,6 +29,10 @@ import '../../features/settings/presentation/pages/privacy_policy_screen.dart';
 import '../../features/settings/presentation/pages/about_app_screen.dart';
 
 import '../../features/home/presentation/pages/restaurant_detail_screen.dart';
+import '../../features/home/presentation/pages/cart_screen.dart';
+import '../../features/home/presentation/pages/checkout_screen.dart';
+import '../../features/home/presentation/pages/order_status_screen.dart';
+import '../../features/home/presentation/pages/order_tracking_screen.dart';
 
 abstract class AppRouter {
   static final router = GoRouter(
@@ -83,7 +89,18 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: '/meal-detail',
-        builder: (context, state) => const MealDetailScreen(),
+        builder: (context, state) {
+          final mealData = state.extra as Map<String, dynamic>? ?? {};
+          return MealDetailScreen(mealData: mealData);
+        },
+      ),
+      GoRoute(
+        path: '/search',
+        builder: (context, state) => const SearchScreen(),
+      ),
+      GoRoute(
+        path: '/orders',
+        builder: (context, state) => const OrdersScreen(),
       ),
 
       // 4. مسارات الإعدادات
@@ -105,7 +122,29 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: '/restaurant-detail',
-        builder: (context, state) => const RestaurantDetailScreen(),
+        builder: (context, state) {
+          final restaurantData = state.extra as Map<String, dynamic>? ?? {};
+          return RestaurantDetailScreen(restaurantData: restaurantData);
+        },
+      ),
+      GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
+      GoRoute(
+        path: '/checkout',
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/order-status',
+        builder: (context, state) {
+          final orderData = state.extra as Map<String, dynamic>? ?? {};
+          return OrderStatusScreen(orderData: orderData);
+        },
+      ),
+      GoRoute(
+        path: '/order-tracking',
+        builder: (context, state) {
+          final orderData = state.extra as Map<String, dynamic>? ?? {};
+          return OrderTrackingScreen(orderData: orderData);
+        },
       ),
     ],
   );

@@ -1,47 +1,42 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../../providers/cart_provider.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 
 class MealDetailScreen extends StatefulWidget {
-  const MealDetailScreen({super.key});
+  final Map<String, dynamic> mealData;
+  const MealDetailScreen({super.key, required this.mealData});
 
   @override
   State<MealDetailScreen> createState() => _MealDetailScreenState();
 }
 
 class _MealDetailScreenState extends State<MealDetailScreen> {
-  // --- إدارة حالة الصفحة (الكمية والأسعار والخيارات) ---
-  int _quantity = 1;
-  final double _basePrice = 24.99;
-  final double _oldPrice = 35.70;
+  int quantity = 1;
+  late double _basePrice;
+  bool isAddedToCart = false;
 
-  // الخيارات المحددة (راديو)
-  String _selectedSandwichOption = 'عادي';
-  String _selectedDrinkOption = 'كوكا كولا';
-  String _selectedFriesOption = 'بطاطس مبهر';
-
-  // الخيارات المتعددة (شيك بوكس)
-  final Map<String, bool> _selectedSauces = {
-    'اللاهب صوص': false,
-    'صوص الباربيكيو': false,
-    'صوص رانش': false,
-    'صوص جبن': false,
+  Map<String, bool> addons = {
+    'زيادة جبن (+500 ر.ي)': false,
+    'بدون بصل': false,
+    'مشروب غازي (+800 ر.ي)': false,
   };
 
-  bool _addCheese = false;
+  @override
+  void initState() {
+    super.initState();
+    _basePrice = double.tryParse(widget.mealData['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0') ?? 0.0;
+  }
 
-  // دالة لحساب السعر الإجمالي (للتوضيح فقط، يمكنك تعديلها حسب منطق الباك اند)
   double get _totalPrice {
     double total = _basePrice;
-    if (_addCheese) total += 2.0;
-    // إضافة أسعار الصوصات إذا كانت محددة
-    _selectedSauces.forEach((key, isSelected) {
-      if (isSelected) total += 4.0;
-    });
-    return total * _quantity;
+    if (addons['زيادة جبن (+500 ر.ي)'] == true) total += 500.0;
+    if (addons['مشروب غازي (+800 ر.ي)'] == true) total += 800.0;
+    return total * quantity;
   }
 
   @override
@@ -141,8 +136,8 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(
-              'assets/images/burger.png', // استبدل بصورة الوجبة
+            Image.network(
+              widget.mealData['imageUrl']?.toString() ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
               fit: BoxFit.cover,
             ),
             // تدرج لوني لدمج الصورة مع الخلفية
@@ -169,6 +164,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   // 2. كرت تفاصيل الوجبة الأساسية
   // ===========================================================================
   Widget _buildMealHeaderCard() {
+    final String name = widget.mealData['name']?.toString() ?? "اسم الوجبة";
+    final String category = widget.mealData['category']?.toString() ?? "وجبات سريعة";
+    final String desc = widget.mealData['description']?.toString() ?? "وصف للوجبة غير متوفر";
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -187,7 +186,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "اللاهب",
+            category,
             style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 5),
@@ -197,7 +196,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
             children: [
               Expanded(
                 child: Text(
-                  "وجبة ساندوتش تويستر",
+                  name,
                   style: GoogleFonts.cairo(
                     color: Colors.white,
                     fontSize: 22,
@@ -250,7 +249,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           
           const SizedBox(height: 15),
           Text(
-            "ساندوتش صغير من خبز التورتيلا مع دجاج فيليه بخلطة اللاهب المقرمشة مع بطاطس ومشروب غازي من اختيارك",
+            desc,
             style: GoogleFonts.cairo(color: Colors.white70, fontSize: 13, height: 1.5),
           ),
           
@@ -292,49 +291,18 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   Widget _buildOptionsSections() {
     return Column(
       children: [
-        // قسم 1: راديو (اختيار واحد مطلوب)
         _buildSectionContainer(
-          title: "اختيارك من ساندوتش تويستر",
-          subtitle: "اختيار واحد",
-          isRequired: true,
-          children: [
-            _buildRadioOption("ساندوتش تويستر (عادي)", null, "عادي", _selectedSandwichOption, (val) => setState(() => _selectedSandwichOption = val!)),
-            _buildRadioOption("ساندوتش تويستر (لاهب/حار)", null, "حار", _selectedSandwichOption, (val) => setState(() => _selectedSandwichOption = val!)),
-            _buildRadioOption("ساندوتش تويستر عادي (مبهر)", "+ 2 ر.ي", "مبهر عادي", _selectedSandwichOption, (val) => setState(() => _selectedSandwichOption = val!)),
-            _buildRadioOption("ساندوتش تويستر لاهب/حار (مبهر)", "+ 2 ر.ي", "مبهر حار", _selectedSandwichOption, (val) => setState(() => _selectedSandwichOption = val!)),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // قسم 2: راديو (اختيار المشروب)
-        _buildSectionContainer(
-          title: "اختيار المشروب المجاني",
-          subtitle: "اختيار واحد",
-          isRequired: true,
-          children: [
-            _buildRadioOption("كوكا كولا", "105 سعرة", "كوكا كولا", _selectedDrinkOption, (val) => setState(() => _selectedDrinkOption = val!), isCalorie: true),
-            _buildRadioOption("كوكا كولا لايت", "1 سعرة", "كوكا كولا لايت", _selectedDrinkOption, (val) => setState(() => _selectedDrinkOption = val!), isCalorie: true),
-            _buildRadioOption("فانتا برتقال", "145 سعرة", "فانتا برتقال", _selectedDrinkOption, (val) => setState(() => _selectedDrinkOption = val!), isCalorie: true),
-            _buildRadioOption("سبرايت", "118 سعرة", "سبرايت", _selectedDrinkOption, (val) => setState(() => _selectedDrinkOption = val!), isCalorie: true),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // قسم 3: شيك بوكس (إضافات اختيارية)
-        _buildSectionContainer(
-          title: "إضافة صوصات",
+          title: "الإضافات",
           subtitle: "خيارات متعددة",
           isRequired: false,
-          children: _selectedSauces.keys.map((String key) {
+          children: addons.keys.map((String key) {
             return _buildCheckboxOption(
               label: key,
-              price: "+ 4 ر.ي",
-              value: _selectedSauces[key]!,
+              price: "",
+              value: addons[key]!,
               onChanged: (val) {
                 setState(() {
-                  _selectedSauces[key] = val!;
+                  addons[key] = val!;
                 });
               },
             );
@@ -394,34 +362,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     );
   }
 
-  // --- عنصر خيار راديو ---
-  Widget _buildRadioOption(String label, String? trailingText, String value, String groupValue, ValueChanged<String?> onChanged, {bool isCalorie = false}) {
-    return Theme(
-      data: ThemeData(unselectedWidgetColor: Colors.white54),
-      child: RadioListTile<String>(
-        value: value,
-        groupValue: groupValue,
-        onChanged: onChanged,
-        activeColor: const Color(0xFF0F55E8),
-        title: Text(label, style: GoogleFonts.cairo(color: Colors.white, fontSize: 14)),
-        secondary: trailingText != null
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isCalorie) const Icon(Icons.local_fire_department_outlined, color: Colors.white54, size: 14),
-                  if (isCalorie) const SizedBox(width: 4),
-                  Text(
-                    trailingText,
-                    style: GoogleFonts.cairo(color: isCalorie ? Colors.white54 : Colors.white70, fontSize: 12),
-                  ),
-                ],
-              )
-            : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-        dense: true,
-      ),
-    );
-  }
+
 
   // --- عنصر خيار شيك بوكس ---
   Widget _buildCheckboxOption({required String label, required String price, required bool value, required ValueChanged<bool?> onChanged}) {
@@ -459,100 +400,163 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
             ],
           ),
           child: SafeArea(
-            child: Row(
-              children: [
-                // أزرار التحكم بالكمية
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        onPressed: () => setState(() => _quantity++),
-                      ),
-                      Text(
-                        _quantity.toString(),
-                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.remove, color: Colors.white),
-                        onPressed: () {
-                          if (_quantity > 1) setState(() => _quantity--);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(width: 15),
-                
-                // زر الإضافة للسلة مع السعر
-                Expanded(
-                  child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF0F55E8), Color(0xFF5D12D2)],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(color: const Color(0xFF0F55E8).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5)),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          // كود إضافة الوجبة للسلة
-                          context.pop(); // العودة للخلف بعد الإضافة
-                        },
-                        borderRadius: BorderRadius.circular(15),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: !isAddedToCart
+                  ? Row(
+                      key: const ValueKey('add_to_cart_ui'),
+                      children: [
+                        // أزرار التحكم بالكمية
+                        Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                "إضافة",
-                                style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              IconButton(
+                                icon: const Icon(Icons.add, color: Colors.white),
+                                onPressed: () => setState(() => quantity++),
                               ),
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  if (_quantity == 1) // إظهار السعر القديم فقط إذا كانت الكمية 1
-                                    Text(
-                                      "$_oldPrice ر.ي",
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white54,
-                                        fontSize: 10,
-                                        decoration: TextDecoration.lineThrough,
-                                        height: 1,
-                                      ),
-                                    ),
-                                  Text(
-                                    "${_totalPrice.toStringAsFixed(2)} ر.ي",
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                quantity.toString(),
+                                style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.remove, color: Colors.white),
+                                onPressed: () {
+                                  if (quantity > 1) setState(() => quantity--);
+                                },
                               ),
                             ],
                           ),
                         ),
-                      ),
+                        
+                        const SizedBox(width: 15),
+                        
+                        // زر الإضافة للسلة مع السعر
+                        Expanded(
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0F55E8), Color(0xFF5D12D2)],
+                              ),
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(color: const Color(0xFF0F55E8).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5)),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  List<String> selectedAddons = [];
+                                  addons.forEach((key, value) {
+                                    if (value) selectedAddons.add(key);
+                                  });
+
+                                  Provider.of<CartProvider>(context, listen: false).addItem(
+                                    CartItem(
+                                      id: widget.mealData['id']?.toString() ?? DateTime.now().toString(),
+                                      name: widget.mealData['name'] ?? "وجبة سريعة",
+                                      price: (_totalPrice / quantity),
+                                      imageUrl: widget.mealData['imageUrl'] ?? "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80",
+                                      quantity: quantity,
+                                      addons: selectedAddons,
+                                    ),
+                                  );
+
+                                  setState(() {
+                                    isAddedToCart = true;
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(15),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "إضافة",
+                                        style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                      Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          if (quantity == 1) // إظهار السعر القديم فقط إذا كانت الكمية 1
+                                            Text(
+                                              "${(_basePrice * 1.2).toStringAsFixed(0)} ر.ي",
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white54,
+                                                fontSize: 10,
+                                                decoration: TextDecoration.lineThrough,
+                                                height: 1,
+                                              ),
+                                            ),
+                                          Text(
+                                            "${_totalPrice.toStringAsFixed(2)} ر.ي",
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              height: 1.2,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      key: const ValueKey('go_to_cart_ui'),
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.green, size: 28),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            "تمت الإضافة للسلة بنجاح",
+                            style: GoogleFonts.cairo(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              context.push('/cart');
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF140C36),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: Text(
+                              "الانتقال للسلة",
+                              style: GoogleFonts.cairo(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
         ),
