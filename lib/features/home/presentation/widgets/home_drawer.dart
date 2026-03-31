@@ -249,7 +249,25 @@ class _HomeDrawerState extends State<HomeDrawer>
                     _buildDrawerItem(
                       Icons.notifications_outlined,
                       "الإشعارات",
-                      onTap: () {},
+                      trailing: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFD32F2F),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          "1",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      onTap: () {
+                        context.pop();
+                        context.push('/notifications');
+                      },
                     ),
                     _buildDrawerItem(
                       Icons.favorite_border,
@@ -318,6 +336,7 @@ class _HomeDrawerState extends State<HomeDrawer>
     IconData icon,
     String title, {
     bool isSelected = false,
+    Widget? trailing,
     VoidCallback? onTap,
   }) {
     return Container(
@@ -346,6 +365,7 @@ class _HomeDrawerState extends State<HomeDrawer>
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
+        trailing: trailing,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         dense: true,
         horizontalTitleGap: 0,

@@ -35,6 +35,7 @@ import '../../features/home/presentation/pages/order_status_screen.dart';
 import '../../features/home/presentation/pages/order_tracking_screen.dart';
 import '../../features/home/presentation/pages/rate_order_screen.dart';
 import '../../features/favorites/presentation/pages/favorites_screen.dart';
+import '../../features/notifications/presentation/pages/notifications_screen.dart';
 
 abstract class AppRouter {
   static final router = GoRouter(
@@ -155,6 +156,10 @@ abstract class AppRouter {
       GoRoute(
         path: '/rate-order',
         builder: (context, state) => const RateOrderScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
   );
