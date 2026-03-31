@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; 
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +15,8 @@ class HomeDrawer extends StatefulWidget {
   State<HomeDrawer> createState() => _HomeDrawerState();
 }
 
-class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateMixin {
+class _HomeDrawerState extends State<HomeDrawer>
+    with SingleTickerProviderStateMixin {
   File? _profileImage;
   late AnimationController _animationController;
 
@@ -33,7 +34,7 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
   Future<void> _loadProfileImage() async {
     final prefs = await SharedPreferences.getInstance();
     String? imagePath = prefs.getString('saved_image_path');
-    
+
     if (imagePath != null && imagePath.isNotEmpty) {
       File savedImage = File(imagePath);
       if (await savedImage.exists()) {
@@ -53,8 +54,8 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.transparent, 
-      elevation: 0, 
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       width: MediaQuery.of(context).size.width * 0.80,
       child: Stack(
         children: [
@@ -82,9 +83,18 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                       bottomLeft: Radius.circular(30),
                     ),
                     border: Border(
-                      left: BorderSide(color: Colors.white.withOpacity(0.15), width: 1),
-                      top: BorderSide(color: Colors.white.withOpacity(0.05), width: 1),
-                      bottom: BorderSide(color: Colors.white.withOpacity(0.05), width: 1),
+                      left: BorderSide(
+                        color: Colors.white.withOpacity(0.15),
+                        width: 1,
+                      ),
+                      top: BorderSide(
+                        color: Colors.white.withOpacity(0.05),
+                        width: 1,
+                      ),
+                      bottom: BorderSide(
+                        color: Colors.white.withOpacity(0.05),
+                        width: 1,
+                      ),
                     ),
                   ),
                 ),
@@ -95,7 +105,10 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
           // 2. المحتوى
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 20,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,12 +119,18 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1), 
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          color: Colors.white.withOpacity(0.1),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                          onPressed: () => context.pop(), 
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: () => context.pop(),
                         ),
                       ),
                     ),
@@ -141,7 +160,7 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                                   Transform.scale(
                                     scale: 1.0 + (value1 * 0.8),
                                     child: Opacity(
-                                      opacity: (1.0 - value1) * 0.5, 
+                                      opacity: (1.0 - value1) * 0.5,
                                       child: _buildAnimatedRing(),
                                     ),
                                   ),
@@ -157,23 +176,25 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                                     color: Colors.black26,
                                     blurRadius: 10,
                                     spreadRadius: 2,
-                                  )
-                                ]
+                                  ),
+                                ],
                               ),
                               child: CircleAvatar(
                                 radius: 40,
                                 backgroundImage: _profileImage != null
                                     ? FileImage(_profileImage!) as ImageProvider
-                                    : const AssetImage('assets/images/group.jpg'),
+                                    : const AssetImage(
+                                        'assets/images/group.jpg',
+                                      ),
                               ),
                             ),
                           ),
 
                           const SizedBox(height: 25),
-                          
+
                           BlocBuilder<AuthBloc, AuthState>(
                             builder: (context, state) {
-                              String userName = "زائر"; 
+                              String userName = "زائر";
                               if (state is Authenticated) {
                                 userName = state.user.name;
                               }
@@ -196,7 +217,11 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                     // القائمة
                     Text(
                       "القائمة",
-                      style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12, letterSpacing: 1),
+                      style: GoogleFonts.cairo(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        letterSpacing: 1,
+                      ),
                     ),
                     const SizedBox(height: 10),
 
@@ -205,24 +230,51 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                       Icons.person_outline,
                       "الملف الشخصي",
                       onTap: () {
-                        context.pop(); 
-                        context.push('/profile'); 
+                        context.pop();
+                        context.push('/profile');
                       },
                     ),
-                    _buildDrawerItem(Icons.list_alt, "طلباتي", onTap: () {
-                      context.push('/orders'); 
-                    }),
-                    _buildDrawerItem(Icons.account_balance_wallet_outlined, "المحفظة", onTap: () {}),
-                    _buildDrawerItem(Icons.notifications_outlined, "الإشعارات", onTap: () {}),
-                    _buildDrawerItem(Icons.favorite_border, "المفضلة", onTap: () {}),
-                    _buildDrawerItem(Icons.card_giftcard, "دعوة صديق", onTap: () {}),
+                    _buildDrawerItem(
+                      Icons.list_alt,
+                      "طلباتي",
+                      onTap: () {
+                        context.push('/orders');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      Icons.account_balance_wallet_outlined,
+                      "المحفظة",
+                      onTap: () {},
+                    ),
+                    _buildDrawerItem(
+                      Icons.notifications_outlined,
+                      "الإشعارات",
+                      onTap: () {},
+                    ),
+                    _buildDrawerItem(
+                      Icons.favorite_border,
+                      "المفضلة",
+                      onTap: () {
+                        context.pop();
+                        context.push('/favorites');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      Icons.card_giftcard,
+                      "دعوة صديق",
+                      onTap: () {},
+                    ),
                     _buildDrawerItem(Icons.search, "بحث", onTap: () {}),
 
                     const SizedBox(height: 30),
 
                     Text(
                       "الإعدادات والدعم",
-                      style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12, letterSpacing: 1),
+                      style: GoogleFonts.cairo(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        letterSpacing: 1,
+                      ),
                     ),
                     const SizedBox(height: 10),
 
@@ -230,11 +282,15 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
                       Icons.settings_outlined,
                       "الإعدادات والخصوصية",
                       onTap: () {
-                        context.pop(); 
-                        context.push('/settings'); 
+                        context.pop();
+                        context.push('/settings');
                       },
                     ),
-                    _buildDrawerItem(Icons.help_outline, "مركز المساعدة", onTap: () {}),
+                    _buildDrawerItem(
+                      Icons.help_outline,
+                      "مركز المساعدة",
+                      onTap: () {},
+                    ),
 
                     const SizedBox(height: 20),
                   ],
@@ -249,19 +305,21 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
 
   Widget _buildAnimatedRing() {
     return Container(
-      width: 80, 
+      width: 80,
       height: 80,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withOpacity(0.5),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
       ),
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title, {bool isSelected = false, VoidCallback? onTap}) {
+  Widget _buildDrawerItem(
+    IconData icon,
+    String title, {
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: isSelected
@@ -270,7 +328,7 @@ class _HomeDrawerState extends State<HomeDrawer> with SingleTickerProviderStateM
               gradient: LinearGradient(
                 colors: [
                   const Color(0xFF0F55E8).withOpacity(0.5),
-                  const Color(0xFF0F55E8).withOpacity(0.0), 
+                  const Color(0xFF0F55E8).withOpacity(0.0),
                 ],
                 begin: Alignment.centerRight,
                 end: Alignment.centerLeft,

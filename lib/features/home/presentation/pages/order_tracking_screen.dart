@@ -620,6 +620,34 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // --- Order Received Button ---
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    context.pushReplacement('/rate-order');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD32F2F),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 5,
+                    shadowColor: const Color(0xFFD32F2F).withOpacity(0.5),
+                  ),
+                  child: Text(
+                    "تم استلام الطلب",
+                    style: GoogleFonts.cairo(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

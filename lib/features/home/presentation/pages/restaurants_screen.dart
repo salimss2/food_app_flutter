@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
+import 'package:provider/provider.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/global_exit_wrapper.dart';
+import '../../../../providers/favorites_provider.dart';
 
 class RestaurantsScreen extends StatefulWidget {
   const RestaurantsScreen({super.key});
@@ -231,15 +233,23 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 // --- اليمين: اللوجو والتقييم والمسافة ---
                 Column(
                   children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        image: DecorationImage(
-                          image: NetworkImage(image),
-                          fit: BoxFit.cover,
-                        ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        image,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 60,
+                            height: 60,
+                            color: const Color(0xFF2A2547),
+                            child: const Center(
+                              child: Icon(Icons.wifi_off, color: Colors.grey, size: 24),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -351,10 +361,24 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                         ),
                       ),
                     const SizedBox(height: 15),
-                    const Icon(
-                      Icons.favorite_border,
-                      color: Color(0xFFFF5555),
-                      size: 22,
+                    Consumer<FavoritesProvider>(
+                      builder: (context, fav, _) {
+                        final rId =
+                            restaurant['id']?.toString() ??
+                            restaurant['name']?.toString() ??
+                            '';
+                        final isFav = fav.isRestaurantFav(rId);
+                        return GestureDetector(
+                          onTap: () => fav.toggleRestaurant(
+                            Map<String, dynamic>.from(restaurant),
+                          ),
+                          child: Icon(
+                            isFav ? Icons.favorite : Icons.favorite_border,
+                            color: const Color(0xFFFF5555),
+                            size: 22,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart'; // <-- استيراد go_router
+import 'package:provider/provider.dart';
 
 import '../../../../core/widgets/global_exit_wrapper.dart';
 
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../providers/favorites_provider.dart';
 import '../widgets/home_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -730,67 +732,75 @@ class _HomeScreenState extends State<HomeScreen> {
             margin: const EdgeInsets.only(left: 10),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: NetworkImage(offer['image'] as String),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Background image with offline fallback
+                  Image.network(
+                    offer['image'] as String,
                     fit: BoxFit.cover,
-                  ),
-                ),
-                child: Container(
-                  color: Colors.black.withOpacity(0.6),
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              offer['title'] as String,
-                              style: GoogleFonts.cairo(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              offer['subtitle'] as String,
-                              style: GoogleFonts.cairo(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
+                    width: double.infinity,
+                    height: 180,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: const Color(0xFF2A2547),
+                        child: const Center(
+                          child: Icon(Icons.wifi_off, color: Colors.grey, size: 30),
                         ),
-                      ),
-                      Positioned(
-                        top: 15,
-                        left: 15, // Badge is in top-left
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Color(offer['color'] as int),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            offer['discount'] as String,
-                            style: GoogleFonts.cairo(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      );
+                    },
+                  ),
+                  // Dark overlay
+                  Container(color: Colors.black.withOpacity(0.6)),
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          offer['title'] as String,
+                          style: GoogleFonts.cairo(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          offer['subtitle'] as String,
+                          style: GoogleFonts.cairo(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  Positioned(
+                    top: 15,
+                    left: 15,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Color(offer['color'] as int),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        offer['discount'] as String,
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -849,6 +859,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 60,
+                            height: 60,
+                            color: const Color(0xFF2A2547),
+                            child: const Center(
+                              child: Icon(Icons.wifi_off, color: Colors.grey, size: 24),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -958,10 +978,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     const SizedBox(height: 15),
-                    const Icon(
-                      Icons.favorite_border,
-                      color: Color(0xFFFF5555),
-                      size: 22,
+                    Consumer<FavoritesProvider>(
+                      builder: (context, fav, _) {
+                        final rId =
+                            restaurant['id']?.toString() ??
+                            restaurant['name']?.toString() ??
+                            '';
+                        final isFav = fav.isRestaurantFav(rId);
+                        return GestureDetector(
+                          onTap: () => fav.toggleRestaurant(
+                            Map<String, dynamic>.from(restaurant),
+                          ),
+                          child: Icon(
+                            isFav ? Icons.favorite : Icons.favorite_border,
+                            color: const Color(0xFFFF5555),
+                            size: 22,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

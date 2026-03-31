@@ -33,6 +33,8 @@ import '../../features/home/presentation/pages/cart_screen.dart';
 import '../../features/home/presentation/pages/checkout_screen.dart';
 import '../../features/home/presentation/pages/order_status_screen.dart';
 import '../../features/home/presentation/pages/order_tracking_screen.dart';
+import '../../features/home/presentation/pages/rate_order_screen.dart';
+import '../../features/favorites/presentation/pages/favorites_screen.dart';
 
 abstract class AppRouter {
   static final router = GoRouter(
@@ -102,6 +104,10 @@ abstract class AppRouter {
         path: '/orders',
         builder: (context, state) => const OrdersScreen(),
       ),
+      GoRoute(
+        path: '/favorites',
+        builder: (context, state) => const FavoritesScreen(),
+      ),
 
       // 4. مسارات الإعدادات
       GoRoute(
@@ -145,6 +151,10 @@ abstract class AppRouter {
           final orderData = state.extra as Map<String, dynamic>? ?? {};
           return OrderTrackingScreen(orderData: orderData);
         },
+      ),
+      GoRoute(
+        path: '/rate-order',
+        builder: (context, state) => const RateOrderScreen(),
       ),
     ],
   );

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +17,17 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String _selectedPaymentMethod = 'cash';
+  String? selectedWalletName;
+  String? selectedWalletAccount;
+  final TextEditingController _receiptController = TextEditingController();
+  bool isImageAttached = false;
+
+  final List<Map<String, String>> wallets = [
+    {'name': 'خدمة حاسب - الكريمي', 'account': '123456789'},
+    {'name': 'محفظة بنك القطيبي', 'account': '987654321'},
+    {'name': 'فلوسك', 'account': '777777777'},
+    {'name': 'العمقي للصرافة', 'account': '254125233'}
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +351,76 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 10),
           _buildRadioOption("الدفع عند الاستلام", 'cash'),
           _buildRadioOption("الدفع من رصيدي ( 0 )", 'balance'),
-          _buildRadioOption("الدفع باستخدام المحفظة الإلكترونية", 'wallet'),
+          _buildRadioOption("الدفع استخدام المحفظة الإلكترونية", 'wallet'),
+          if (_selectedPaymentMethod == 'wallet' && selectedWalletName != null) ...[
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.05)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "الرجاء تحويل المبلغ إلى $selectedWalletAccount وإرفاق السند.",
+                    style: GoogleFonts.cairo(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _receiptController,
+                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: "رقم السند أو رقم العملية",
+                      hintStyle: GoogleFonts.cairo(color: Colors.white30, fontSize: 13),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        isImageAttached = !isImageAttached;
+                      });
+                    },
+                    icon: Icon(
+                      isImageAttached ? Icons.check_circle : Icons.upload_file,
+                      color: isImageAttached ? Colors.green : Colors.white,
+                      size: 18,
+                    ),
+                    label: Text(
+                      isImageAttached ? "تم إرفاق الصورة ✅" : "إرفاق صورة الإيداع",
+                      style: GoogleFonts.cairo(
+                        color: isImageAttached ? Colors.green : Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isImageAttached ? Colors.green : Colors.white.withOpacity(0.2),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -348,7 +429,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildRadioOption(String title, String value) {
     bool isSelected = _selectedPaymentMethod == value;
     return InkWell(
-      onTap: () => setState(() => _selectedPaymentMethod = value),
+      onTap: () {
+        setState(() => _selectedPaymentMethod = value);
+        if (value == 'wallet') {
+          _showWalletsBottomSheet(context);
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -589,6 +675,176 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  void _showWalletsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1A34),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          padding: const EdgeInsets.only(bottom: 20, top: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              Text(
+                "اختر المحفظة الإلكترونية",
+                style: GoogleFonts.cairo(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 15),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: wallets.length,
+                itemBuilder: (context, index) {
+                  final wallet = wallets[index];
+                  bool isWalletSelected = selectedWalletName == wallet['name'];
+                  
+                  return InkWell(
+                    onTap: () {
+                      this.setState(() {
+                        selectedWalletName = wallet['name'];
+                        selectedWalletAccount = wallet['account'];
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.white.withOpacity(0.05),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.account_balance_wallet,
+                                color: Color(0xFFE58B29),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  wallet['name']!,
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      wallet['account']!,
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    GestureDetector(
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: wallet['account']!));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'تم نسخ رقم الحساب',
+                                              style: GoogleFonts.cairo(color: Colors.white, fontSize: 13),
+                                            ),
+                                            backgroundColor: Colors.green.shade700,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: const Icon(
+                                        Icons.copy,
+                                        color: Colors.white54,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            isWalletSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            color: isWalletSelected ? const Color(0xFFE58B29) : Colors.white54,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD32F2F),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      "إغلاق",
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildBottomAction(
     BuildContext context,
     CartProvider cart,
@@ -635,6 +891,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               onTap: cart.items.isEmpty
                   ? null
                   : () {
+                      if (_selectedPaymentMethod == 'wallet') {
+                        if (_receiptController.text.isEmpty && !isImageAttached) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'فشل الدفع: الرجاء إدخال رقم السند أو إرفاق صورة الإيداع لتأكيد الدفع.',
+                                style: GoogleFonts.cairo(color: Colors.white),
+                              ),
+                              backgroundColor: Colors.red.shade700,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
                       final orderData = {
                         'orderId':
                             '#${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',

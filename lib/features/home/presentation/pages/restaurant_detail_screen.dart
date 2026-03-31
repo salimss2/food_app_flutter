@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/favorites_provider.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   final Map<String, dynamic> restaurantData;
@@ -36,6 +37,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       "name": "الأطباق الرئيسية",
       "image": "assets/images/burger.png",
       "isIcon": false,
+    },
+    {
+      "name": "العروض",
+      "icon": Icons.local_offer,
+      "color": const Color(0xFFE53935),
+      "isIcon": true,
     },
   ];
 
@@ -550,25 +557,67 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   // 5. قائمة الوجبات المحدثة (تصميم مطابق للسكرين شوت)
   // ===========================================================================
   Widget _buildMenuItemsList(List<dynamic> menu) {
+    // --- حقن بيانات العروض الوهمية ---
+    for (int i = 0; i < menu.length; i++) {
+      if (menu[i]['isOffer'] == null) {
+        menu[i]['isOffer'] = (i % 4 == 0);
+        if (menu[i]['isOffer'] == true) {
+          menu[i]['oldPrice'] = (menu[i]['price'] ?? 0) + 1000;
+        }
+      }
+    }
+
+    // --- فلترة العروض ---
+    final bool isOffersTab =
+        _categories[_selectedCategoryIndex]['name'] == 'العروض';
+    final displayMenu = isOffersTab
+        ? menu.where((m) => m['isOffer'] == true).toList()
+        : menu;
+
+    if (isOffersTab && displayMenu.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Text(
+            'لا توجد عروض حالياً',
+            style: GoogleFonts.cairo(color: Colors.white54, fontSize: 15),
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: EdgeInsets.zero,
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
-      itemCount: menu.length,
+      itemCount: displayMenu.length,
       itemBuilder: (context, index) {
-        return _buildMenuItemCard(menu[index]);
+        final meal = displayMenu[index];
+        final originalIndex = menu.indexOf(meal);
+        if (isOffersTab) {
+          return _buildOfferCard(meal, originalIndex);
+        }
+        return _buildMenuItemCard(meal, originalIndex);
       },
     );
   }
 
-  Widget _buildMenuItemCard(dynamic meal) {
+  Widget _buildMenuItemCard(dynamic meal, int mealIndex) {
+    // --- استخراج أو محاكاة بيانات الخيارات ---
+    final List<dynamic> options =
+        meal['options'] ??
+        (mealIndex % 3 == 0
+            ? [
+                {'name': 'عادي', 'price': meal['price']},
+                {'name': 'شيدر', 'price': (meal['price'] ?? 0) + 500},
+              ]
+            : []);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
-      height: 110, // ارتفاع مناسب للبطاقة
+      height: 110,
       decoration: BoxDecoration(
-        color: const Color(
-          0xFF2A2640,
-        ).withOpacity(0.6), // لون الخلفية الداكن المائل للرمادي
+        color: const Color(0xFF2A2640).withOpacity(0.6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -590,24 +639,35 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                   fit: BoxFit.cover,
                 ),
               ),
-              // أيقونة القلب في دائرة بيضاء
               Positioned(
                 top: 8,
                 right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    color: Color(0xFFFF416C), // لون أحمر/وردي
-                    size: 16,
-                  ),
+                child: Consumer<FavoritesProvider>(
+                  builder: (context, fav, _) {
+                    final mId =
+                        meal['id']?.toString() ??
+                        meal['name']?.toString() ??
+                        '';
+                    final isFav = fav.isMealFav(mId);
+                    return GestureDetector(
+                      onTap: () =>
+                          fav.toggleMeal(Map<String, dynamic>.from(meal)),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          color: const Color(0xFFFF416C),
+                          size: 16,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              // شعار التوصيل (مصغر في الأسفل)
               Positioned(
                 bottom: 8,
                 right: 8,
@@ -682,11 +742,38 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                         meal['id']?.toString() ??
                         meal['name']?.toString() ??
                         '';
-                    final index = cart.items.indexWhere(
+                    final idx = cart.items.indexWhere(
                       (item) => item.id == mealId,
                     );
-                    final cartItem = index >= 0 ? cart.items[index] : null;
+                    final cartItem = idx >= 0 ? cart.items[idx] : null;
 
+                    // --- إذا كان للوجبة خيارات: زر عرض الخيارات ---
+                    if (options.isNotEmpty && cartItem == null) {
+                      return GestureDetector(
+                        onTap: () =>
+                            _showOptionsBottomSheet(context, meal, options),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFED922A),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'عرض الخيارات',
+                            style: GoogleFonts.cairo(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    // --- إذا لم يكن بالسلة بعد: زر إضافة مباشر ---
                     if (cartItem == null) {
                       return GestureDetector(
                         onTap: () {
@@ -734,7 +821,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFED922A),
+                            color: const Color.fromARGB(255, 237, 42, 42),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -747,59 +834,60 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           ),
                         ),
                       );
-                    } else {
-                      return Container(
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: () => Provider.of<CartProvider>(
-                                context,
-                                listen: false,
-                              ).incrementQuantity(cartItem.id),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 10),
-                                child: Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              cartItem.quantity.toString(),
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => Provider.of<CartProvider>(
-                                context,
-                                listen: false,
-                              ).decrementQuantity(cartItem.id),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 10),
-                                child: Icon(
-                                  Icons.remove,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
                     }
+
+                    // --- إذا كان بالسلة: عداد الكمية ---
+                    return Container(
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () => Provider.of<CartProvider>(
+                              context,
+                              listen: false,
+                            ).incrementQuantity(cartItem.id),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            cartItem.quantity.toString(),
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Provider.of<CartProvider>(
+                              context,
+                              listen: false,
+                            ).decrementQuantity(cartItem.id),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: Icon(
+                                Icons.remove,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   },
                 ),
               ],
@@ -807,6 +895,522 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ===========================================================================
+  // 5b. بطاقة العرض الكبيرة (Offer Card)
+  // ===========================================================================
+  Widget _buildOfferCard(dynamic meal, int mealIndex) {
+    final mealId = meal['id']?.toString() ?? meal['name']?.toString() ?? '';
+    final double price =
+        double.tryParse(
+          (meal['price']?.toString() ?? '0').replaceAll(RegExp(r'[^0-9.]'), ''),
+        ) ??
+        0.0;
+    final oldPrice = meal['oldPrice'] ?? meal['price'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1A34),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- القسم العلوي: الصورة والبادجات ---
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+                child: Image.network(
+                  meal['imageUrl'] ??
+                      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+                  width: double.infinity,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: double.infinity,
+                      height: 180,
+                      color: const Color(0xFF2A2547),
+                      child: const Center(
+                        child: Icon(
+                          Icons.wifi_off,
+                          color: Colors.grey,
+                          size: 30,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // --- تدرج داكن فوق الصورة ---
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        const Color(0xFF1E1A34).withOpacity(0.7),
+                      ],
+                      stops: const [0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              // --- بادج "عرض خاص" (أعلى اليسار) ---
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE53935), Color(0xFFFF5252)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE53935).withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_offer,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'عرض خاص',
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // --- أيقونة المفضلة (أعلى اليمين) ---
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Consumer<FavoritesProvider>(
+                  builder: (context, fav, _) {
+                    final isFav = fav.isMealFav(mealId);
+                    return GestureDetector(
+                      onTap: () =>
+                          fav.toggleMeal(Map<String, dynamic>.from(meal)),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          color: const Color(0xFFFF416C),
+                          size: 18,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+
+          // --- القسم السفلي: التفاصيل ---
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- اسم الوجبة ---
+                Text(
+                  meal['name'] ?? 'وجبة',
+                  style: GoogleFonts.cairo(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (meal['description'] != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    meal['description'],
+                    style: GoogleFonts.cairo(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 12),
+
+                // --- صف السعر ---
+                Row(
+                  children: [
+                    Text(
+                      '${meal['price']} ر.ي',
+                      style: GoogleFonts.cairo(
+                        color: const Color(0xFFED922A),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '$oldPrice ر.ي',
+                      style: GoogleFonts.cairo(
+                        color: Colors.white38,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: Colors.white38,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE53935).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFE53935).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        'وفّر ${(oldPrice - (meal['price'] ?? 0))} ر.ي',
+                        style: GoogleFonts.cairo(
+                          color: const Color(0xFFE53935),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // --- زر أضف للسلة ---
+                GestureDetector(
+                  onTap: () {
+                    Provider.of<CartProvider>(context, listen: false).addItem(
+                      CartItem(
+                        id: mealId,
+                        name: meal['name']?.toString() ?? 'وجبة',
+                        imageUrl:
+                            meal['imageUrl']?.toString() ??
+                            'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+                        price: price,
+                        quantity: 1,
+                        addons: [],
+                      ),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'تمت إضافة ${meal['name']} للسلة بنجاح 🛒',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Cairo',
+                          ),
+                        ),
+                        backgroundColor: Colors.green.shade700,
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE53935), Color(0xFFFF5252)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFE53935).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.shopping_cart_outlined,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'أضف للسلة',
+                            style: GoogleFonts.cairo(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // 6. البوتوم شيت - خيارات الوجبة
+  // ===========================================================================
+  void _showOptionsBottomSheet(
+    BuildContext context,
+    dynamic meal,
+    List<dynamic> options,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return Container(
+          padding: const EdgeInsets.only(top: 12, bottom: 24),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E1A34),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // --- مقبض السحب ---
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // --- العنوان ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Text(
+                        'الخيارات المتوفرة',
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(sheetContext),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white54,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                const SizedBox(height: 8),
+
+                // --- قائمة الخيارات ---
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: options.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(color: Colors.white.withOpacity(0.06), height: 1),
+                  itemBuilder: (ctx, i) {
+                    final option = options[i];
+                    final optionName = option['name']?.toString() ?? '';
+                    final optionPrice = option['price'] ?? meal['price'] ?? 0;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          // --- اسم الخيار ---
+                          Expanded(
+                            child: Text(
+                              optionName,
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+
+                          // --- حبة السعر البرتقالية ---
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFED922A).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFFED922A).withOpacity(0.4),
+                              ),
+                            ),
+                            child: Text(
+                              '$optionPrice ر.ي',
+                              style: GoogleFonts.cairo(
+                                color: const Color(0xFFED922A),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // --- زر أضف للسلة ---
+                          GestureDetector(
+                            onTap: () {
+                              final double price =
+                                  double.tryParse(
+                                    optionPrice.toString().replaceAll(
+                                      RegExp(r'[^0-9.]'),
+                                      '',
+                                    ),
+                                  ) ??
+                                  0.0;
+
+                              final mealId =
+                                  meal['id']?.toString() ??
+                                  meal['name']?.toString() ??
+                                  '';
+
+                              context.read<CartProvider>().addItem(
+                                CartItem(
+                                  id: '${mealId}_$optionName',
+                                  name: '${meal['name']} - $optionName',
+                                  imageUrl:
+                                      meal['imageUrl']?.toString() ??
+                                      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+                                  price: price,
+                                  quantity: 1,
+                                  addons: [],
+                                ),
+                              );
+
+                              Navigator.pop(sheetContext);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'تمت إضافة ${meal['name']} - $optionName للسلة بنجاح 🛒',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontFamily: 'Cairo',
+                                    ),
+                                  ),
+                                  backgroundColor: Colors.green.shade700,
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 237, 42, 42),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'أضف للسلة',
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
