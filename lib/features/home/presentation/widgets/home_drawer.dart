@@ -242,6 +242,14 @@ class _HomeDrawerState extends State<HomeDrawer>
                       },
                     ),
                     _buildDrawerItem(
+                      Icons.schedule,
+                      "الطلبات المجدولة",
+                      onTap: () {
+                        context.pop();
+                        context.push('/scheduled-orders');
+                      },
+                    ),
+                    _buildDrawerItem(
                       Icons.account_balance_wallet_outlined,
                       "المحفظة",
                       onTap: () {},

@@ -133,6 +133,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // قسم الدعم
                       _buildSectionHeader("الدعم"),
                       _buildSettingsTile(
+                        icon: Icons.chat_outlined,
+                        title: "إرسال شكوى أو استفسار",
+                        onTap: () {
+                          context.push('/complaint-inquiry');
+                        },
+                      ),
+                      _buildSettingsTile(
                         icon: Icons.help_outline,
                         title: "مركز المساعدة",
                         onTap: () {},

@@ -1,12 +1,14 @@
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/schedule_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -21,6 +23,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? selectedWalletAccount;
   final TextEditingController _receiptController = TextEditingController();
   bool isImageAttached = false;
+
+  // --- Schedule State ---
+  DateTime? _scheduledDateTime;
+  bool _isScheduled = false;
 
   final List<Map<String, String>> wallets = [
     {'name': 'خدمة حاسب - الكريمي', 'account': '123456789'},
@@ -82,6 +88,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             _buildNotesSection(),
                             const SizedBox(height: 15),
                             _buildPaymentMethodsSection(),
+                            const SizedBox(height: 15),
+                            _buildScheduleSection(),
                             const SizedBox(height: 25),
                             _buildOrderTable(cart),
                             const SizedBox(height: 10),
@@ -907,6 +915,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         }
                       }
 
+                      // --- Scheduled Order Logic ---
+                      if (_isScheduled) {
+                        if (_scheduledDateTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'الرجاء اختيار وقت الجدولة',
+                                style: GoogleFonts.cairo(color: Colors.white),
+                              ),
+                              backgroundColor: Colors.red.shade700,
+                              duration: const Duration(seconds: 3),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final scheduleProv = context.read<ScheduleProvider>();
+                        final orderId = DateTime.now().millisecondsSinceEpoch.toString();
+                        scheduleProv.addScheduledOrder(
+                          ScheduledOrder(
+                            id: orderId,
+                            items: List.from(cart.items),
+                            totalPrice: grandTotal,
+                            scheduledDateTime: _scheduledDateTime!,
+                          ),
+                        );
+                        cart.clearCart();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'تمت جدولة طلبك بنجاح! 🎉 سيتم التسليم في الوقت الذي قمت بجدولته.',
+                              style: GoogleFonts.cairo(color: Colors.white),
+                            ),
+                            backgroundColor: Colors.green.shade700,
+                            duration: const Duration(seconds: 3),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        context.go('/home');
+                        return;
+                      }
+
+                      // --- Immediate Order ---
                       final orderData = {
                         'orderId':
                             '#${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
@@ -928,7 +980,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    "تنفيذ الطلب",
+                    _isScheduled ? "تأكيد الجدولة" : "تنفيذ الطلب",
                     style: GoogleFonts.cairo(
                       color: Colors.white,
                       fontSize: 14,
@@ -941,6 +993,348 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ===========================================================================
+  // Schedule Delivery Section
+  // ===========================================================================
+  Widget _buildScheduleSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1A34),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "جدولة التوصيل",
+            style: GoogleFonts.cairo(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () => _showSchedulingBottomSheet(),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+              decoration: BoxDecoration(
+                color: _isScheduled
+                    ? const Color(0xFFED922A).withOpacity(0.1)
+                    : const Color(0xFF2A2640).withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isScheduled
+                      ? const Color(0xFFED922A).withOpacity(0.4)
+                      : Colors.white.withOpacity(0.05),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    color: _isScheduled
+                        ? const Color(0xFFED922A)
+                        : Colors.white54,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _isScheduled && _scheduledDateTime != null
+                          ? 'تمت الجدولة لـ: ${DateFormat('yyyy/MM/dd – hh:mm a', 'ar').format(_scheduledDateTime!)}'
+                          : 'جدولة الطلب لوقت لاحق',
+                      style: GoogleFonts.cairo(
+                        color: _isScheduled ? const Color(0xFFED922A) : Colors.white54,
+                        fontSize: 13,
+                        fontWeight: _isScheduled ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  if (_isScheduled)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isScheduled = false;
+                          _scheduledDateTime = null;
+                        });
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white30,
+                      size: 16,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSchedulingBottomSheet() {
+    DateTime selectedDate = _scheduledDateTime ?? DateTime.now().add(const Duration(hours: 1));
+    TimeOfDay selectedTime = _scheduledDateTime != null
+        ? TimeOfDay.fromDateTime(_scheduledDateTime!)
+        : TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1)));
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final combinedDateTime = DateTime(
+              selectedDate.year,
+              selectedDate.month,
+              selectedDate.day,
+              selectedTime.hour,
+              selectedTime.minute,
+            );
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: Container(
+                padding: const EdgeInsets.all(25),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1E1A34),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Drag Handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      "اختر موعد التوصيل",
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+
+                    // --- Date Picker ---
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                          builder: (context, child) {
+                            return Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Color(0xFFED922A),
+                                  onPrimary: Colors.white,
+                                  surface: Color(0xFF1E1A34),
+                                  onSurface: Colors.white,
+                                ),
+                                dialogBackgroundColor: const Color(0xFF140C36),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setSheetState(() => selectedDate = picked);
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2640).withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_today,
+                              color: Color(0xFFED922A),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              DateFormat('yyyy/MM/dd', 'ar').format(selectedDate),
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const Spacer(),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.white30,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // --- Time Picker ---
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime,
+                          builder: (context, child) {
+                            return Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Color(0xFFED922A),
+                                  onPrimary: Colors.white,
+                                  surface: Color(0xFF1E1A34),
+                                  onSurface: Colors.white,
+                                ),
+                                dialogBackgroundColor: const Color(0xFF140C36),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setSheetState(() => selectedTime = picked);
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2640).withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.access_time,
+                              color: Color(0xFFED922A),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              selectedTime.format(context),
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const Spacer(),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.white30,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // --- Summary ---
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFED922A).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFED922A).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFFED922A),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'سيتم توصيل طلبك يوم ${DateFormat('yyyy/MM/dd', 'ar').format(selectedDate)} الساعة ${selectedTime.format(context)}',
+                              style: GoogleFonts.cairo(
+                                color: const Color(0xFFED922A),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // --- Confirm Button ---
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isScheduled = true;
+                            _scheduledDateTime = combinedDateTime;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFED922A),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          "تأكيد الجدولة",
+                          style: GoogleFonts.cairo(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

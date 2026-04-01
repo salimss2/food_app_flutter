@@ -36,11 +36,14 @@ import '../../features/home/presentation/pages/order_tracking_screen.dart';
 import '../../features/home/presentation/pages/rate_order_screen.dart';
 import '../../features/favorites/presentation/pages/favorites_screen.dart';
 import '../../features/notifications/presentation/pages/notifications_screen.dart';
+import '../../features/home/presentation/pages/scheduled_orders_screen.dart';
+import '../../features/settings/presentation/pages/complaint_or_inquiry_screen.dart';
+import '../../features/home/presentation/pages/chat_screen.dart';
 
 abstract class AppRouter {
   static final router = GoRouter(
     // نقطة البداية عند تشغيل التطبيق (ستكون شاشة الأنيميشن)
-    initialLocation: '/animated-splash',
+    initialLocation: '/home',
 
     routes: [
       // 1. مسارات البداية
@@ -160,6 +163,21 @@ abstract class AppRouter {
       GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/scheduled-orders',
+        builder: (context, state) => const ScheduledOrdersScreen(),
+      ),
+      GoRoute(
+        path: '/complaint-inquiry',
+        builder: (context, state) => const ComplaintOrInquiryScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (context, state) {
+          final driverName = state.extra as String? ?? 'السائق';
+          return ChatScreen(driverName: driverName);
+        },
       ),
     ],
   );

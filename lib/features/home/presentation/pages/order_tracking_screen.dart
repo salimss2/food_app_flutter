@@ -588,16 +588,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     ),
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE58B29).withOpacity(0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.chat_bubble_outline,
-                            color: Color(0xFFE58B29),
-                            size: 20,
+                        GestureDetector(
+                          onTap: () =>
+                              context.push('/chat', extra: 'فهمي لبيب'),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE58B29).withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.chat_bubble_outline,
+                              color: Color(0xFFE58B29),
+                              size: 20,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
