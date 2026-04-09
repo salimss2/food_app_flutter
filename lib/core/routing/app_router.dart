@@ -14,6 +14,7 @@ import '../../features/auth/presentation/pages/login_screen.dart';
 import '../../features/auth/presentation/pages/signup_screen.dart';
 import '../../features/auth/presentation/pages/forgot_password_screen.dart';
 import '../../features/auth/presentation/pages/verification_screen.dart';
+import '../../features/auth/presentation/pages/reset_password_screen.dart';
 
 // --- استيراد الشاشات الرئيسية ---
 import '../../features/home/presentation/pages/home_screen.dart';
@@ -43,7 +44,7 @@ import '../../features/home/presentation/pages/chat_screen.dart';
 abstract class AppRouter {
   static final router = GoRouter(
     // نقطة البداية عند تشغيل التطبيق (ستكون شاشة الأنيميشن)
-    initialLocation: '/home',
+    initialLocation: '/animated-splash',
 
     routes: [
       // 1. مسارات البداية
@@ -80,7 +81,17 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: '/verification',
-        builder: (context, state) => const VerificationScreen(),
+        builder: (context, state) {
+          final email = state.extra as String? ?? '';
+          return VerificationScreen(email: email);
+        },
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) {
+          final email = state.extra as String? ?? '';
+          return ResetPasswordScreen(email: email);
+        },
       ),
 
       // 3. المسارات الرئيسية

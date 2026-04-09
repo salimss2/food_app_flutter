@@ -29,7 +29,15 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _basePrice = double.tryParse(widget.mealData['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0') ?? 0.0;
+    _basePrice =
+        double.tryParse(
+          widget.mealData['price']?.toString().replaceAll(
+                RegExp(r'[^0-9.]'),
+                '',
+              ) ??
+              '0',
+        ) ??
+        0.0;
   }
 
   double get _totalPrice {
@@ -53,7 +61,6 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 slivers: [
                   // 1. الصورة العلوية مع زر الرجوع
                   _buildSliverAppBar(context),
-                  
 
                   // 2. تفاصيل الوجبة الأساسية
                   SliverToBoxAdapter(
@@ -66,10 +73,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             const SizedBox(height: 40),
                             _buildMealHeaderCard(),
                             const SizedBox(height: 20),
-                            
+
                             // 3. أقسام الاختيارات
                             _buildOptionsSections(),
-                            
+
                             // مسافة سفلية لعدم تغطية شريط الإضافة
                             const SizedBox(height: 100),
                           ],
@@ -126,7 +133,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
             child: IconButton(
-              icon: const Icon(Icons.share_outlined, color: Colors.white, size: 20),
+              icon: const Icon(
+                Icons.share_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: () {},
             ),
           ),
@@ -137,7 +148,8 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           fit: StackFit.expand,
           children: [
             Image.network(
-              widget.mealData['imageUrl']?.toString() ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+              widget.mealData['imageUrl']?.toString() ??
+                  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
               fit: BoxFit.cover,
             ),
             // تدرج لوني لدمج الصورة مع الخلفية
@@ -165,8 +177,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   // ===========================================================================
   Widget _buildMealHeaderCard() {
     final String name = widget.mealData['name']?.toString() ?? "اسم الوجبة";
-    final String category = widget.mealData['category']?.toString() ?? "وجبات سريعة";
-    final String desc = widget.mealData['description']?.toString() ?? "وصف للوجبة غير متوفر";
+    final String category =
+        widget.mealData['category']?.toString() ?? "وجبات سريعة";
+    final String desc =
+        widget.mealData['description']?.toString() ?? "وصف للوجبة غير متوفر";
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -205,11 +219,15 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                   ),
                 ),
               ),
-              const Icon(Icons.favorite_border, color: Colors.white54, size: 24),
+              const Icon(
+                Icons.favorite_border,
+                color: Colors.white54,
+                size: 24,
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          
+
           // البادجات (توصيل مجاني، خصم)
           Row(
             children: [
@@ -218,13 +236,26 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF5555).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFF5555).withOpacity(0.5)),
+                  border: Border.all(
+                    color: const Color(0xFFFF5555).withOpacity(0.5),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.local_offer, color: Color(0xFFFF5555), size: 12),
+                    const Icon(
+                      Icons.local_offer,
+                      color: Color(0xFFFF5555),
+                      size: 12,
+                    ),
                     const SizedBox(width: 4),
-                    Text("30%", style: GoogleFonts.poppins(color: const Color(0xFFFF5555), fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text(
+                      "30%",
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFFFF5555),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -238,31 +269,49 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.delivery_dining, color: Colors.cyanAccent, size: 14),
+                    const Icon(
+                      Icons.delivery_dining,
+                      color: Colors.cyanAccent,
+                      size: 14,
+                    ),
                     const SizedBox(width: 4),
-                    Text("توصيل مجاني", style: GoogleFonts.cairo(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text(
+                      "توصيل مجاني",
+                      style: GoogleFonts.cairo(
+                        color: Colors.cyanAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          
+
           const SizedBox(height: 15),
           Text(
             desc,
-            style: GoogleFonts.cairo(color: Colors.white70, fontSize: 13, height: 1.5),
+            style: GoogleFonts.cairo(
+              color: Colors.white70,
+              fontSize: 13,
+              height: 1.5,
+            ),
           ),
-          
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 15),
             child: Divider(color: Colors.white.withOpacity(0.1), height: 1),
           ),
-          
+
           // شريط المعلومات (سعرات، تنبيهات)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildInfoBadge(Icons.local_fire_department_outlined, "437 سعرة حرارية"),
+              _buildInfoBadge(
+                Icons.local_fire_department_outlined,
+                "437 سعرة حرارية",
+              ),
               _buildInfoBadge(Icons.info_outline, "تنبيهات"),
               _buildInfoBadge(Icons.analytics_outlined, "الحقائق التغذوية"),
             ],
@@ -337,24 +386,47 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(subtitle, style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12)),
+                    Text(
+                      title,
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.cairo(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
                 if (isRequired)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text("مطلوب", style: GoogleFonts.cairo(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      "مطلوب",
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
               ],
             ),
           ),
           Divider(color: Colors.white.withOpacity(0.05), height: 1),
-          
+
           // عناصر القسم
           ...children,
         ],
@@ -362,10 +434,13 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     );
   }
 
-
-
   // --- عنصر خيار شيك بوكس ---
-  Widget _buildCheckboxOption({required String label, required String price, required bool value, required ValueChanged<bool?> onChanged}) {
+  Widget _buildCheckboxOption({
+    required String label,
+    required String price,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
     return Theme(
       data: ThemeData(unselectedWidgetColor: Colors.white54),
       child: CheckboxListTile(
@@ -373,8 +448,14 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         onChanged: onChanged,
         activeColor: const Color(0xFF0F55E8),
         checkColor: Colors.white,
-        title: Text(label, style: GoogleFonts.cairo(color: Colors.white, fontSize: 14)),
-        secondary: Text(price, style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12)),
+        title: Text(
+          label,
+          style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+        ),
+        secondary: Text(
+          price,
+          style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12),
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10),
         dense: true,
         controlAffinity: ListTileControlAffinity.leading,
@@ -394,9 +475,15 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           decoration: BoxDecoration(
             color: const Color(0xFF140C36).withOpacity(0.85),
-            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+            border: Border(
+              top: BorderSide(color: Colors.white.withOpacity(0.1)),
+            ),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, -5)),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
             ],
           ),
           child: SafeArea(
@@ -416,15 +503,25 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                           child: Row(
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.add, color: Colors.white),
+                                icon: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                ),
                                 onPressed: () => setState(() => quantity++),
                               ),
                               Text(
                                 quantity.toString(),
-                                style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.remove, color: Colors.white),
+                                icon: const Icon(
+                                  Icons.remove,
+                                  color: Colors.white,
+                                ),
                                 onPressed: () {
                                   if (quantity > 1) setState(() => quantity--);
                                 },
@@ -432,9 +529,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(width: 15),
-                        
+
                         // زر الإضافة للسلة مع السعر
                         Expanded(
                           child: Container(
@@ -445,7 +542,13 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                               ),
                               borderRadius: BorderRadius.circular(15),
                               boxShadow: [
-                                BoxShadow(color: const Color(0xFF0F55E8).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5)),
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF0F55E8,
+                                  ).withOpacity(0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
                               ],
                             ),
                             child: Material(
@@ -457,12 +560,21 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                     if (value) selectedAddons.add(key);
                                   });
 
-                                  Provider.of<CartProvider>(context, listen: false).addItem(
+                                  Provider.of<CartProvider>(
+                                    context,
+                                    listen: false,
+                                  ).addItem(
                                     CartItem(
-                                      id: widget.mealData['id']?.toString() ?? DateTime.now().toString(),
-                                      name: widget.mealData['name'] ?? "وجبة سريعة",
+                                      id:
+                                          widget.mealData['id']?.toString() ??
+                                          DateTime.now().toString(),
+                                      name:
+                                          widget.mealData['name'] ??
+                                          "وجبة سريعة",
                                       price: (_totalPrice / quantity),
-                                      imageUrl: widget.mealData['imageUrl'] ?? "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80",
+                                      imageUrl:
+                                          widget.mealData['imageUrl'] ??
+                                          "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80",
                                       quantity: quantity,
                                       addons: selectedAddons,
                                     ),
@@ -474,25 +586,36 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                 },
                                 borderRadius: BorderRadius.circular(15),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         "إضافة",
-                                        style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                        style: GoogleFonts.cairo(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                       Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         children: [
-                                          if (quantity == 1) // إظهار السعر القديم فقط إذا كانت الكمية 1
+                                          if (quantity ==
+                                              1) // إظهار السعر القديم فقط إذا كانت الكمية 1
                                             Text(
                                               "${(_basePrice * 1.2).toStringAsFixed(0)} ر.ي",
                                               style: GoogleFonts.poppins(
                                                 color: Colors.white54,
                                                 fontSize: 10,
-                                                decoration: TextDecoration.lineThrough,
+                                                decoration:
+                                                    TextDecoration.lineThrough,
                                                 height: 1,
                                               ),
                                             ),
@@ -519,7 +642,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                   : Row(
                       key: const ValueKey('go_to_cart_ui'),
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 28),
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 28,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(

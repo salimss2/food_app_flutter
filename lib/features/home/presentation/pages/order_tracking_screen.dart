@@ -193,10 +193,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         initialZoom: 14.5,
       ),
       children: [
-        TileLayer(
-          urlTemplate:
-              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-          subdomains: const ['a', 'b', 'c', 'd'],
+        ColorFiltered(
+          colorFilter: const ColorFilter.matrix([
+            -1,  0,  0, 0, 255,
+             0, -1,  0, 0, 255,
+             0,  0, -1, 0, 255,
+             0,  0,  0, 1,   0,
+          ]),
+          child: TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.dfood.app',
+          ),
         ),
         PolylineLayer(
           polylines: isLoadingRoute

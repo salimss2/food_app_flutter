@@ -1,7 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart'; // استيراد حزمة التوجيه
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
@@ -19,13 +21,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   // متغير لحالة "تذكرني"
-  bool _rememberMe = false; 
+  bool _rememberMe = false;
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return 'Please enter your email';
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) return 'Enter a valid email';
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+      return 'Enter a valid email';
+    }
     return null;
   }
 
@@ -37,10 +41,68 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      context.read<AuthBloc>().add(LoginRequested(
-        _emailController.text,
-        _passwordController.text,
-      ));
+      context.read<AuthBloc>().add(
+        LoginRequested(_emailController.text, _passwordController.text),
+      );
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    try {
+      // 1. تهيئة خدمة جوجل (هام: ضع الـ Web Client ID هنا وليس الـ Android ID)
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId:
+            'رقم_الـ_Web_Client_ID_الخاص_بك_هنا.apps.googleusercontent.com', // ⚠️ تأكد من وضع الرقم الصحيح هنا
+        scopes: ['email', 'profile'],
+      );
+
+      // 2. إظهار نافذة جوجل لاختيار الحساب
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // المستخدم قام بإلغاء العملية
+        return;
+      }
+
+      // 3. الحصول على الـ Tokens من جوجل
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken != null) {
+        // 4. إرسال الـ idToken إلى سيرفر Laravel الخاص بك
+        final dio = Dio();
+        final response = await dio.post(
+          'http://10.0.0.4:8000/api/auth/google-signin',
+          data: {'idToken': idToken},
+        );
+
+        if (response.statusCode == 200 && response.data['status'] == true) {
+          // تم الدخول بنجاح!
+          final String laravelToken = response.data['token'];
+          final userData = response.data['user'];
+
+          // قم بحفظ laravelToken في SharedPreferences إذا أردت
+
+          print("Login Success: ${userData['name']}");
+
+          // 👉 الانتقال للصفحة الرئيسية بعد النجاح
+          if (mounted) {
+            context.go('/home');
+          }
+        }
+      }
+    } catch (e) {
+      print("Error during Google Sign In: $e");
+      // إظهار رسالة خطأ للمستخدم في حال فشل العملية
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("حدث خطأ أثناء تسجيل الدخول بواسطة جوجل: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -68,9 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context, constraints) {
               return SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: IntrinsicHeight(
                     child: Column(
                       children: [
@@ -86,11 +146,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 10),
                         Text(
                           "Please sign in to your existing account",
-                          style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
+                          style: GoogleFonts.poppins(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
                         const Spacer(flex: 1),
                         const SizedBox(height: 20),
-                        
+
                         // --- الحاوية الزجاجية ---
                         Container(
                           width: double.infinity,
@@ -110,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.black.withOpacity(0.2),
                                 blurRadius: 20,
                                 offset: const Offset(0, -5),
-                              )
+                              ),
                             ],
                           ),
                           child: Form(
@@ -134,10 +197,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                   validator: _validatePassword,
                                 ),
                                 const SizedBox(height: 15),
-                                
+
                                 // Checkbox & Forgot Password
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -145,15 +209,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                           height: 24,
                                           width: 24,
                                           child: Checkbox(
-                                            value: _rememberMe, 
+                                            value: _rememberMe,
                                             onChanged: (bool? newValue) {
                                               setState(() {
                                                 _rememberMe = newValue!;
                                               });
                                             },
-                                            side: const BorderSide(color: Colors.white54),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                            activeColor: const Color(0xFF0F55E8),
+                                            side: const BorderSide(
+                                              color: Colors.white54,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            activeColor: const Color(
+                                              0xFF0F55E8,
+                                            ),
                                             checkColor: Colors.white,
                                           ),
                                         ),
@@ -165,8 +236,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                             });
                                           },
                                           child: Text(
-                                            "Remember me", 
-                                            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12)
+                                            "Remember me",
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -176,44 +250,95 @@ class _LoginScreenState extends State<LoginScreen> {
                                         // الانتقال لصفحة نسيان كلمة المرور
                                         context.push('/forgot-password');
                                       },
-                                      child: Text("Forgot Password", style: GoogleFonts.poppins(color: Colors.white, fontSize: 12)),
+                                      child: Text(
+                                        "Forgot Password",
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                                
+
                                 const SizedBox(height: 30),
-                                
-                                // زر تسجيل الدخول
-                                ShinyButton(text: "LOG IN", onPressed: _submitForm),
-                                
+
+                                // زر تسجيل الدخول العادي
+                                ShinyButton(
+                                  text: "LOG IN",
+                                  onPressed: _submitForm,
+                                ),
+
                                 const SizedBox(height: 20),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text("Don't have an account? ", style: GoogleFonts.poppins(color: Colors.white54, fontSize: 12)),
+                                    Text(
+                                      "Don't have an account? ",
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                     GestureDetector(
                                       onTap: () {
                                         // الانتقال لصفحة إنشاء الحساب
                                         context.push('/signup');
                                       },
-                                      child: Text("SIGN UP", style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      child: Text(
+                                        "SIGN UP",
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 25),
-                                Text("Or", style: GoogleFonts.poppins(color: Colors.white54)),
+                                Text(
+                                  "Or",
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white54,
+                                  ),
+                                ),
                                 const SizedBox(height: 20),
+
+                                // --- أزرار تسجيل الدخول الاجتماعي ---
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    _socialButton(Icons.facebook),
+                                    _socialButton(
+                                      Icons.facebook,
+                                      onTap: () {
+                                        // إضافة دالة فيسبوك لاحقاً
+                                      },
+                                    ),
                                     const SizedBox(width: 20),
-                                    _socialButton(Icons.alternate_email),
+
+                                    // 👉 هنا تم ربط زر جوجل بالدالة
+                                    _socialButton(
+                                      Icons.g_mobiledata,
+                                      onTap: signInWithGoogle,
+                                    ),
+
                                     const SizedBox(width: 20),
-                                    _socialButton(Icons.apple),
+                                    _socialButton(
+                                      Icons.apple,
+                                      onTap: () {
+                                        // إضافة دالة أبل لاحقاً
+                                      },
+                                    ),
                                   ],
                                 ),
-                                SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 ? 20 : 40),
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).viewInsets.bottom >
+                                          0
+                                      ? 20
+                                      : 40,
+                                ),
                               ],
                             ),
                           ),
@@ -230,18 +355,30 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _socialButton(IconData icon) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: const Color(0xFF2F284A),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 5, offset: const Offset(0, 3)),
-        ],
+  // 👉 تم تعديل هذه الويدجت لتقبل خاصية onTap لتعمل كزر حقيقي
+  Widget _socialButton(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: const Color(0xFF2F284A),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          color: Colors.white,
+          size: 30,
+        ), // كبرنا الأيقونة قليلاً لتكون أوضح
       ),
-      child: Icon(icon, color: Colors.white, size: 24),
     );
   }
 }

@@ -33,7 +33,9 @@ class OrderStatusScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _buildHeader(orderData['orderId']?.toString() ?? '#------'),
+                          _buildHeader(
+                            orderData['orderId']?.toString() ?? '#------',
+                          ),
                           const SizedBox(height: 25),
                           _buildSectionTitle("معلومات عامة"),
                           _buildGeneralInfoCard(orderData),
@@ -219,10 +221,7 @@ class OrderStatusScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           "5 - 1 دقيقة",
-          style: GoogleFonts.poppins(
-            color: Colors.white54,
-            fontSize: 14,
-          ),
+          style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14),
         ),
       ],
     );
@@ -230,7 +229,8 @@ class OrderStatusScreen extends StatelessWidget {
 
   Widget _buildGeneralInfoCard(Map<String, dynamic> orderData) {
     final String orderId = orderData['orderId']?.toString() ?? '#------';
-    final List<CartItem> items = (orderData['items'] as List?)?.cast<CartItem>() ?? [];
+    final List<CartItem> items =
+        (orderData['items'] as List?)?.cast<CartItem>() ?? [];
     return _buildCard(
       child: Column(
         children: [
@@ -325,8 +325,10 @@ class OrderStatusScreen extends StatelessWidget {
                         color: Colors.white12,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.fastfood,
-                          color: Colors.orangeAccent),
+                      child: const Icon(
+                        Icons.fastfood,
+                        color: Colors.orangeAccent,
+                      ),
                     ),
                   ),
                 ),
@@ -633,8 +635,8 @@ class OrderStatusScreen extends StatelessWidget {
     final double subtotal = (orderData['subtotal'] as num?)?.toDouble() ?? 0.0;
     final double deliveryFee =
         (orderData['deliveryFee'] as num?)?.toDouble() ?? 500.0;
-    final double grandTotal = (orderData['total'] as num?)?.toDouble() ??
-        subtotal + deliveryFee;
+    final double grandTotal =
+        (orderData['total'] as num?)?.toDouble() ?? subtotal + deliveryFee;
 
     return _buildCard(
       child: Column(

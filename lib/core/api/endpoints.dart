@@ -1,12 +1,18 @@
 class Endpoints {
   // إذا كنت تستخدم "محاكي أندرويد" (Emulator) والـ Port هو 8000:
-  static const String baseUrl = "http://192.168.0.108:8000/api/v1"; 
-  
-  // ملاحظة: إذا كنت تختبر على هاتف حقيقي، يجب وضع الـ IP الخاص بالكمبيوتر بدلاً من 10.0.2.2
-  // static const String baseUrl = "http://192.168.1.15:8000/api"; 
+  // static const String baseUrl =
+  //     "https://pharmacy-sanyo-democrats-cube.trycloudflare.com/api";
+  // static const String baseUrl = "http://10.0.0.4:8000/api";
+  // static const String baseUrl = "http://192.168.0.104:8000/api";
+  static const String baseUrl = "https://fundamentals-includes-aerial-revenue.trycloudflare.com/api";
+  // هام جداً: في الطرفية (Terminal) يجب تشغيل السيرفر بهذا الأمر:
+  // php artisan serve --host=0.0.0.0
 
   // مسارات المصادقة
-  static const String login = "$baseUrl/auths/login"; // (يجب أن تتأكد أن لارافل لديه هذه الدالة)
-  static const String register = "$baseUrl/auths"; // مسار الـ POST لإنشاء عنصر جديد
-  static const String logout = "$baseUrl/auths/logout";
+  static const String login = "$baseUrl/auth/login";
+  static const String register = "$baseUrl/auth/register";
+  static const String logout = "$baseUrl/auth/logout";
+  static const String forgotPassword = "$baseUrl/auth/forgot-password";
+  static const String verifyCode = "$baseUrl/auth/verify-code";
+  static const String resetPassword = "$baseUrl/auth/reset-password";
 }

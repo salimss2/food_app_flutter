@@ -175,7 +175,11 @@ class CartScreen extends StatelessWidget {
   // ===========================================================================
   // Cart Item Tile
   // ===========================================================================
-  Widget _buildCartItemTile(BuildContext context, CartItem item, CartProvider cart) {
+  Widget _buildCartItemTile(
+    BuildContext context,
+    CartItem item,
+    CartProvider cart,
+  ) {
     return Dismissible(
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,

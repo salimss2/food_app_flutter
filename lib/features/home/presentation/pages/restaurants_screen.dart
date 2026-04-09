@@ -246,7 +246,11 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                             height: 60,
                             color: const Color(0xFF2A2547),
                             child: const Center(
-                              child: Icon(Icons.wifi_off, color: Colors.grey, size: 24),
+                              child: Icon(
+                                Icons.wifi_off,
+                                color: Colors.grey,
+                                size: 24,
+                              ),
                             ),
                           );
                         },

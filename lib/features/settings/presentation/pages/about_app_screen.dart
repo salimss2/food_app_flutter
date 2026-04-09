@@ -17,7 +17,10 @@ class AboutAppScreen extends StatelessWidget {
               SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 15,
+                  ),
                   child: Row(
                     children: [
                       // زر الرجوع
@@ -25,10 +28,15 @@ class AboutAppScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
@@ -53,7 +61,7 @@ class AboutAppScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       const SizedBox(height: 20),
-                      
+
                       // --- شعار واسم التطبيق ---
                       Container(
                         width: 100,
@@ -79,21 +87,22 @@ class AboutAppScreen extends StatelessWidget {
                           color: Colors.white,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       Text(
                         "FastGrab", // اسم التطبيق كما في شاشة البداية
-                        style: GoogleFonts.poppins( // استخدام Poppins للاسم الإنجليزي
+                        style: GoogleFonts.poppins(
+                          // استخدام Poppins للاسم الإنجليزي
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           letterSpacing: 1.5,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 5),
-                      
+
                       Text(
                         "الإصدار 1.0.0",
                         style: GoogleFonts.cairo(
@@ -102,7 +111,7 @@ class AboutAppScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 40),
 
                       // --- حاوية النبذة التعريفية (Glass Container) ---
@@ -112,7 +121,9 @@ class AboutAppScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: const Color(0xFF1E1A34).withOpacity(0.60),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.05),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,11 +147,20 @@ class AboutAppScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 25),
-                            
+
                             // مميزات التطبيق بشكل مبسط
-                            _buildFeatureItem(Icons.rocket_launch, "توصيل سريع وموثوق"),
-                            _buildFeatureItem(Icons.restaurant_menu, "تنوع كبير في المطاعم"),
-                            _buildFeatureItem(Icons.payment, "طرق دفع آمنة ومتعددة"),
+                            _buildFeatureItem(
+                              Icons.rocket_launch,
+                              "توصيل سريع وموثوق",
+                            ),
+                            _buildFeatureItem(
+                              Icons.restaurant_menu,
+                              "تنوع كبير في المطاعم",
+                            ),
+                            _buildFeatureItem(
+                              Icons.payment,
+                              "طرق دفع آمنة ومتعددة",
+                            ),
                           ],
                         ),
                       ),
@@ -163,12 +183,14 @@ class AboutAppScreen extends StatelessWidget {
                           const SizedBox(width: 15),
                           _buildSocialIcon(Icons.alternate_email), // تويتر/X
                           const SizedBox(width: 15),
-                          _buildSocialIcon(Icons.camera_alt_outlined), // انستجرام
+                          _buildSocialIcon(
+                            Icons.camera_alt_outlined,
+                          ), // انستجرام
                         ],
                       ),
-                      
+
                       const SizedBox(height: 30),
-                      
+
                       // حقوق النشر
                       Text(
                         "© 2026 جميع الحقوق محفوظة لـ FastGrab",

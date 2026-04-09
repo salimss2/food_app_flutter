@@ -8,7 +8,8 @@ class ComplaintOrInquiryScreen extends StatefulWidget {
   const ComplaintOrInquiryScreen({super.key});
 
   @override
-  State<ComplaintOrInquiryScreen> createState() => _ComplaintOrInquiryScreenState();
+  State<ComplaintOrInquiryScreen> createState() =>
+      _ComplaintOrInquiryScreenState();
 }
 
 class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
@@ -17,7 +18,8 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
   final TextEditingController _detailsController = TextEditingController();
 
   void _submit() {
-    if (_subjectController.text.trim().isEmpty || _detailsController.text.trim().isEmpty) {
+    if (_subjectController.text.trim().isEmpty ||
+        _detailsController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -52,10 +54,7 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
             ),
             content: Text(
               "تم إرسال رسالتك بنجاح، سيقوم فريق الدعم بالرد عليك قريباً.",
-              style: GoogleFonts.cairo(
-                color: Colors.white54,
-                fontSize: 15,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white54, fontSize: 15),
             ),
             actions: [
               ElevatedButton(
@@ -96,7 +95,10 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
                 _buildAppBar(context),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 20,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -153,7 +155,9 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
                                 borderRadius: BorderRadius.circular(15),
                               ),
                               elevation: 5,
-                              shadowColor: const Color(0xFFED922A).withOpacity(0.5),
+                              shadowColor: const Color(
+                                0xFFED922A,
+                              ).withOpacity(0.5),
                             ),
                             child: Text(
                               "إرسال",
@@ -240,10 +244,14 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFED922A) : const Color(0xFF2A2640),
+            color: isSelected
+                ? const Color(0xFFED922A)
+                : const Color(0xFF2A2640),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFFED922A) : Colors.white.withOpacity(0.1),
+              color: isSelected
+                  ? const Color(0xFFED922A)
+                  : Colors.white.withOpacity(0.1),
             ),
             boxShadow: isSelected
                 ? [
@@ -286,7 +294,10 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
         hintStyle: GoogleFonts.cairo(color: Colors.white30),
         filled: true,
         fillColor: const Color(0xFF1E1A34).withOpacity(0.6),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
           borderSide: BorderSide.none,

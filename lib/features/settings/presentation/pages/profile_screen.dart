@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   late TextEditingController _locationController;
+  bool isLoading = false; // أضف هذا المتغير
 
   File? _imageFile;
 
@@ -114,57 +116,120 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // --- دالة الحفظ المحدثة (حفظ الصورة بشكل دائم) ---
+  // استيراد حزمة Dio في أعلى الملف إذا لم تكن موجودة
+
+  // --- دالة الحفظ المحدثة (حفظ في السيرفر ثم محلياً) ---
   Future<void> _saveProfile() async {
     FocusScope.of(context).unfocus();
 
     if (_formKey.currentState!.validate()) {
-      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        isLoading = true; // إظهار حالة التحميل
+      });
 
-      // حفظ البيانات النصية
-      await prefs.setString('saved_phone', _phoneController.text);
-      await prefs.setString('saved_address', _addressController.text);
-      await prefs.setString('saved_location', _locationController.text);
+      try {
+        // 1. جلب التوكن الخاص بالمستخدم من SharedPreferences أو من AuthBloc
+        final prefs = await SharedPreferences.getInstance();
+        final String? token = prefs.getString(
+          'auth_token',
+        ); // تأكد من اسم المفتاح الذي تحفظ به التوكن عند تسجيل الدخول
 
-      // حفظ الصورة بشكل دائم
-      if (_imageFile != null) {
-        // الحصول على المجلد الدائم الخاص بالتطبيق
-        final directory = await getApplicationDocumentsDirectory();
-
-        // استخراج اسم الصورة من المسار المؤقت
-        final String fileName = path.basename(_imageFile!.path);
-
-        // إنشاء مسار دائم جديد
-        final String permanentPath = '${directory.path}/$fileName';
-
-        // نسخ الصورة من المجلد المؤقت إلى المجلد الدائم (إذا لم تكن منسوخة مسبقاً)
-        if (_imageFile!.path != permanentPath) {
-          final File permanentImage = await _imageFile!.copy(permanentPath);
-
-          // حفظ المسار الدائم الجديد في SharedPreferences
-          await prefs.setString('saved_image_path', permanentImage.path);
-
-          // تحديث متغير الصورة ليؤشر على الملف الدائم
-          _imageFile = permanentImage;
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          hasUnsavedChanges = false;
+        // 2. تجهيز البيانات للإرسال (FormData لدعم رفع الصور)
+        final formData = FormData.fromMap({
+          'name': _nameController.text,
+          'email': _emailController.text,
+          'phone': _phoneController.text,
+          'address': _addressController.text,
+          'location': _locationController.text,
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم حفظ جميع التغييرات بنجاح!',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+
+        // 3. إضافة الصورة إذا تم اختيارها
+        if (_imageFile != null) {
+          formData.files.add(
+            MapEntry(
+              'image',
+              await MultipartFile.fromFile(
+                _imageFile!.path,
+                filename: path.basename(_imageFile!.path),
+              ),
             ),
-            backgroundColor: const Color(0xFF0F55E8),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+          );
+        }
+
+        // 4. إرسال الطلب للسيرفر
+        final dio = Dio();
+        final response = await dio.post(
+          'http://10.0.0.4:8000/api/auth/update', // تأكد من الرابط
+          data: formData,
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
           ),
         );
+
+        if (response.statusCode == 200) {
+          // ==========================================
+          // 5. إذا نجح الحفظ في السيرفر، نحفظ البيانات محلياً
+          // ==========================================
+
+          await prefs.setString('saved_phone', _phoneController.text);
+          await prefs.setString('saved_address', _addressController.text);
+          await prefs.setString('saved_location', _locationController.text);
+
+          // حفظ الصورة بشكل دائم محلياً
+          if (_imageFile != null) {
+            final directory = await getApplicationDocumentsDirectory();
+            final String fileName = path.basename(_imageFile!.path);
+            final String permanentPath = '${directory.path}/$fileName';
+
+            if (_imageFile!.path != permanentPath) {
+              final File permanentImage = await _imageFile!.copy(permanentPath);
+              await prefs.setString('saved_image_path', permanentImage.path);
+              _imageFile = permanentImage;
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              hasUnsavedChanges = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'تم حفظ جميع التغييرات بنجاح!',
+                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: const Color(0xFF0F55E8),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // 6. التعامل مع أخطاء السيرفر
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'حدث خطأ أثناء حفظ البيانات. يرجى المحاولة لاحقاً.',
+                style: GoogleFonts.cairo(),
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+          debugPrint("Error updating profile: $e");
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            isLoading = false; // إخفاء حالة التحميل
+          });
+        }
       }
     }
   }
@@ -524,10 +589,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 40),
 
                         // --- زر الحفظ ---
-                        ShinyButton(
-                          text: "حفظ التغييرات",
-                          onPressed: _saveProfile,
-                        ),
+                        // --- زر الحفظ ---
+                        isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF0F55E8),
+                                ),
+                              )
+                            : ShinyButton(
+                                text: "حفظ التغييرات",
+                                onPressed: _saveProfile,
+                              ),
 
                         const SizedBox(height: 40),
                       ],

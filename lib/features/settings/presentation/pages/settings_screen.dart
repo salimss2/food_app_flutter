@@ -49,7 +49,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Icons.arrow_back,
                             color: Colors.white,
                           ),
-                          onPressed: () => context.pop(), // الرجوع باستخدام go_router
+                          onPressed: () =>
+                              context.pop(), // الرجوع باستخدام go_router
                         ),
                       ),
                       const SizedBox(width: 15),

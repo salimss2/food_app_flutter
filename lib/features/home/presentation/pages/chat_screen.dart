@@ -19,19 +19,15 @@ class _ChatScreenState extends State<ChatScreen> {
     {
       'text': 'أهلاً بك، أنا استلمت طلبك وفي طريقي إليك 🛵',
       'isMe': false,
-      'time': '10:00 AM'
-    }
+      'time': '10:00 AM',
+    },
   ];
 
   void _sendMessage() {
     final text = _messageController.text.trim();
     if (text.isNotEmpty) {
       setState(() {
-        _messages.add({
-          'text': text,
-          'isMe': true,
-          'time': 'Now',
-        });
+        _messages.add({'text': text, 'isMe': true, 'time': 'Now'});
         _messageController.clear();
       });
     }
@@ -125,7 +121,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildChatBubble({required String text, required bool isMe, required String time}) {
+  Widget _buildChatBubble({
+    required String text,
+    required bool isMe,
+    required String time,
+  }) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -142,25 +142,21 @@ class _ChatScreenState extends State<ChatScreen> {
             bottomLeft: Radius.circular(isMe ? 16 : 0),
             bottomRight: Radius.circular(isMe ? 0 : 16),
           ),
-          border: isMe ? null : Border.all(color: Colors.white.withOpacity(0.05)),
+          border: isMe
+              ? null
+              : Border.all(color: Colors.white.withOpacity(0.05)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               text,
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 15,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 15),
             ),
             const SizedBox(height: 5),
             Text(
               time,
-              style: GoogleFonts.poppins(
-                color: Colors.white54,
-                fontSize: 10,
-              ),
+              style: GoogleFonts.poppins(color: Colors.white54, fontSize: 10),
             ),
           ],
         ),
@@ -192,7 +188,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 hintStyle: GoogleFonts.cairo(color: Colors.white30),
                 filled: true,
                 fillColor: const Color(0xFF1E1A34).withOpacity(0.8),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,

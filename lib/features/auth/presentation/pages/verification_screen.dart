@@ -5,14 +5,21 @@ import 'package:go_router/go_router.dart'; // <-- استيراد حزمة الت
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
 
+import 'package:dio/dio.dart';
+import '../../../../core/api/dio_client.dart';
+import '../../../../core/api/endpoints.dart';
+
 class VerificationScreen extends StatefulWidget {
-  const VerificationScreen({super.key});
+  final String email;
+
+  const VerificationScreen({super.key, required this.email});
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
+  bool isLoading = false;
   // إنشاء 4 وحدات تحكم للنصوص و 4 عقد تركيز (FocusNodes)
   final List<TextEditingController> _controllers = List.generate(4, (index) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(4, (index) => FocusNode());
@@ -29,15 +36,56 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.dispose();
   }
 
-  void _onVerifyPressed() {
+  void _onVerifyPressed() async {
     // تجميع الكود من الحقول الأربعة
     String code = _controllers.map((c) => c.text).join();
     
     if (code.length == 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Verifying code: $code'), backgroundColor: const Color(0xFF0F55E8)),
-      );
-      // هنا تضع منطق التحقق (API) لاحقاً
+      setState(() {
+        isLoading = true;
+      });
+
+      try {
+        final dioClient = DioClient();
+        final response = await dioClient.dio.post(
+          Endpoints.verifyCode,
+          data: {
+            'email': widget.email,
+            'code': code,
+          },
+        );
+
+        if (response.statusCode == 200) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم التحقق بنجاح'),
+                backgroundColor: Color(0xFF0F55E8),
+              ),
+            );
+            context.push('/reset-password', extra: widget.email);
+          }
+        }
+      } on DioException catch (e) {
+        if (mounted) {
+          String errorMessage = 'الرمز غير صحيح';
+          if (e.response?.data != null && e.response?.data is Map) {
+            errorMessage = e.response?.data['message'] ?? errorMessage;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter the full 4-digit code'), backgroundColor: Colors.redAccent),
@@ -95,7 +143,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
                       ),
                       Text(
-                        "example@gmail.com",
+                        widget.email.isNotEmpty ? widget.email : "example@gmail.com",
                         style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                       
@@ -165,6 +213,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             // زر التحقق
                             ShinyButton(
                               text: "VERIFY",
+                              isLoading: isLoading,
                               onPressed: _onVerifyPressed,
                             ),
 

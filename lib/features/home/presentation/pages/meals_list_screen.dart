@@ -25,17 +25,19 @@ class _MealsListScreenState extends State<MealsListScreen> {
 
   Future<void> fetchMeals() async {
     try {
-      final String response = await rootBundle.loadString('assets/data/mock_database.json');
+      final String response = await rootBundle.loadString(
+        'assets/data/mock_database.json',
+      );
       final data = await json.decode(response);
       final List<dynamic> restaurants = data['restaurants'] ?? [];
-      
+
       List<dynamic> tempMeals = [];
       for (var restaurant in restaurants) {
         if (restaurant['menu'] != null) {
           tempMeals.addAll(restaurant['menu']);
         }
       }
-      
+
       setState(() {
         allMeals = tempMeals;
         isLoadingMeals = false;
@@ -240,8 +242,14 @@ class _MealsListScreenState extends State<MealsListScreen> {
   // ===========================================================================
   Widget _buildMealCard(Map<String, dynamic> meal) {
     final String name = meal['name']?.toString() ?? 'وجبة';
-    final String image = meal['imageUrl']?.toString() ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
-    final double price = double.tryParse(meal['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0') ?? 0.0;
+    final String image =
+        meal['imageUrl']?.toString() ??
+        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
+    final double price =
+        double.tryParse(
+          meal['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0',
+        ) ??
+        0.0;
     final String category = meal['category']?.toString() ?? '';
 
     return GestureDetector(
@@ -408,9 +416,7 @@ class _MealsListScreenState extends State<MealsListScreen> {
                         Text(
                           "${price.toStringAsFixed(0)} ر.ي",
                           style: GoogleFonts.poppins(
-                            color: const Color(
-                              0xFFFF5555,
-                            ),
+                            color: const Color(0xFFFF5555),
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),

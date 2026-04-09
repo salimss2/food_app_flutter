@@ -745,7 +745,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       return Container(
                         color: const Color(0xFF2A2547),
                         child: const Center(
-                          child: Icon(Icons.wifi_off, color: Colors.grey, size: 30),
+                          child: Icon(
+                            Icons.wifi_off,
+                            color: Colors.grey,
+                            size: 30,
+                          ),
                         ),
                       );
                     },
@@ -831,8 +835,10 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: restaurantsList.length,
       itemBuilder: (context, index) {
         final restaurant = restaurantsList[index];
-        final double parsedRating = double.tryParse(restaurant['rating']?.toString() ?? '4.0') ?? 4.0;
-        final double parsedDistance = double.tryParse(restaurant['distance']?.toString() ?? '2.5') ?? 2.5;
+        final double parsedRating =
+            double.tryParse(restaurant['rating']?.toString() ?? '4.0') ?? 4.0;
+        final double parsedDistance =
+            double.tryParse(restaurant['distance']?.toString() ?? '2.5') ?? 2.5;
 
         return GestureDetector(
           onTap: () {
@@ -865,7 +871,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 60,
                             color: const Color(0xFF2A2547),
                             child: const Center(
-                              child: Icon(Icons.wifi_off, color: Colors.grey, size: 24),
+                              child: Icon(
+                                Icons.wifi_off,
+                                color: Colors.grey,
+                                size: 24,
+                              ),
                             ),
                           );
                         },
@@ -884,8 +894,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         5,
                         (starIndex) => Icon(
                           Icons.star,
-                          color:
-                              starIndex < parsedRating.toInt()
+                          color: starIndex < parsedRating.toInt()
                               ? Colors.amber
                               : Colors.white24,
                           size: 10,
@@ -910,7 +919,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Text(
-                        restaurant["description"]?.toString() ?? "وصف غير متوفر",
+                        restaurant["description"]?.toString() ??
+                            "وصف غير متوفر",
                         style: GoogleFonts.cairo(
                           color: Colors.white54,
                           fontSize: 11,

@@ -17,7 +17,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
               SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 15,
+                  ),
                   child: Row(
                     children: [
                       // زر الرجوع
@@ -25,10 +28,15 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
@@ -54,7 +62,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1A34).withOpacity(0.60), // خلفية زجاجية داكنة
+                      color: const Color(
+                        0xFF1E1A34,
+                      ).withOpacity(0.60), // خلفية زجاجية داكنة
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white.withOpacity(0.05)),
                     ),
@@ -76,13 +86,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
                           content:
                               "مرحباً بك في تطبيقنا. نحن نولي أهمية كبرى لخصوصيتك ونلتزم بحماية بياناتك الشخصية. توضح سياسة الخصوصية هذه كيفية جمع واستخدام ومشاركة معلوماتك عند استخدامك لخدماتنا.",
                         ),
-                        
+
                         _buildSection(
                           title: "2. المعلومات التي نجمعها",
                           content:
                               "عند التسجيل في التطبيق، نقوم بجمع معلومات مثل اسمك، عنوان بريدك الإلكتروني، ورقم هاتفك. كما نجمع بيانات حول موقعك الجغرافي (بموافقتك) لتقديم خدمة توصيل أفضل.",
                         ),
-                        
+
                         _buildSection(
                           title: "3. كيف نستخدم معلوماتك؟",
                           content:
@@ -92,13 +102,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
                               "• إرسال تحديثات وعروض ترويجية تهمك.\n"
                               "• الرد على استفساراتك ودعم العملاء.",
                         ),
-                        
+
                         _buildSection(
                           title: "4. مشاركة المعلومات",
                           content:
                               "نحن لا نقوم ببيع أو تأجير معلوماتك الشخصية لأطراف ثالثة. قد نشارك بعض البيانات الضرورية فقط مع شركائنا (مثل المطاعم وعمال التوصيل) لإتمام طلبك بنجاح.",
                         ),
-                        
+
                         _buildSection(
                           title: "5. أمان البيانات",
                           content:
@@ -112,7 +122,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 10),
-                        Divider(color: Colors.white.withOpacity(0.1), thickness: 1),
+                        Divider(
+                          color: Colors.white.withOpacity(0.1),
+                          thickness: 1,
+                        ),
                         const SizedBox(height: 20),
 
                         Center(

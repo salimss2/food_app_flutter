@@ -35,9 +35,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<AuthBloc>(
           create: (context) => AuthBloc(authRepository)..add(AppStarted()),
         ),
-        ChangeNotifierProvider<CartProvider>(
-          create: (_) => CartProvider(),
-        ),
+        ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
         ChangeNotifierProvider<FavoritesProvider>(
           create: (_) => FavoritesProvider(),
         ),

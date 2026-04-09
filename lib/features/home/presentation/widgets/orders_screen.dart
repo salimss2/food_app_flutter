@@ -80,7 +80,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       "status": "ملغي",
       "totalPrice": "2,200 ر.ي",
       "items": "2x كابتشينو, 1x كرواسون",
-    }
+    },
   ];
 
   // دالة محاكاة إضافة الطلب للسلة
@@ -103,60 +103,69 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return GlobalExitWrapper(
       child: Scaffold(
         body: Directionality(
-        textDirection: TextDirection.rtl,
-        child: CustomBackground(
-          child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- 1. الهيدر (العنوان وزر الرجوع) ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                  child: Row(
-                    children: [
-                      _buildBackButton(context),
-                      const SizedBox(width: 15),
-                      Text(
-                        "طلباتي",
-                        style: GoogleFonts.cairo(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+          textDirection: TextDirection.rtl,
+          child: CustomBackground(
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- 1. الهيدر (العنوان وزر الرجوع) ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    child: Row(
+                      children: [
+                        _buildBackButton(context),
+                        const SizedBox(width: 15),
+                        Text(
+                          "طلباتي",
+                          style: GoogleFonts.cairo(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // --- 2. الطلب الحالي ---
+                  _buildSectionTitle("الطلب الحالي"),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: _buildActiveOrderCard(context),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // --- 3. قائمة الطلبات السابقة ---
+                  _buildSectionTitle("الطلبات السابقة"),
+                  const SizedBox(height: 5),
+                  Expanded(
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
                       ),
-                    ],
+                      itemCount: _pastOrders.length,
+                      itemBuilder: (context, index) {
+                        return _buildOrderCard(_pastOrders[index]);
+                      },
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // --- 2. الطلب الحالي ---
-                _buildSectionTitle("الطلب الحالي"),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: _buildActiveOrderCard(context),
-                ),
-
-                const SizedBox(height: 10),
-
-                // --- 3. قائمة الطلبات السابقة ---
-                _buildSectionTitle("الطلبات السابقة"),
-                const SizedBox(height: 5),
-                Expanded(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    itemCount: _pastOrders.length,
-                    itemBuilder: (context, index) {
-                      return _buildOrderCard(_pastOrders[index]);
-                    },
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -186,7 +195,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
               border: Border.all(color: Colors.white.withOpacity(0.1)),
             ),
             child: const Center(
-              child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
           ),
         ),
@@ -343,7 +356,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // بيانات المطعم والتاريخ
               Expanded(
                 child: Column(
@@ -367,18 +380,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ],
                 ),
               ),
-              
+
               // شارة حالة الطلب (مكتمل / ملغي)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: isCompleted 
-                      ? Colors.green.withOpacity(0.2) 
+                  color: isCompleted
+                      ? Colors.green.withOpacity(0.2)
                       : Colors.red.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isCompleted 
-                        ? Colors.green.withOpacity(0.5) 
+                    color: isCompleted
+                        ? Colors.green.withOpacity(0.5)
                         : Colors.red.withOpacity(0.5),
                   ),
                 ),
@@ -432,7 +448,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 children: [
                   Text(
                     order["id"],
-                    style: GoogleFonts.poppins(color: Colors.white38, fontSize: 11),
+                    style: GoogleFonts.poppins(
+                      color: Colors.white38,
+                      fontSize: 11,
+                    ),
                   ),
                   Text(
                     order["totalPrice"],
@@ -444,12 +463,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ),
                 ],
               ),
-              
+
               // زر "إعادة الطلب"
               GestureDetector(
                 onTap: () => _reorderItems(order["id"]),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF0F55E8), Color(0xFF5D12D2)],
