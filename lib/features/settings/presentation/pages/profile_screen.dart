@@ -1,3 +1,4 @@
+import 'package:customer_app/core/api/endpoints.dart';
 import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -158,16 +159,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         // 4. إرسال الطلب للسيرفر
         final dio = Dio();
-        final response = await dio.post(
-          'http://10.0.0.4:8000/api/auth/update', // تأكد من الرابط
-          data: formData,
-          options: Options(
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            },
-          ),
-        );
+final response = await dio.post(
+  Endpoints.updateProfile, // <--- هنا نستخدم المتغير بدلاً من الرابط النصي
+  data: formData,
+  options: Options(
+    headers: {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+    },
+  ),
+);
 
         if (response.statusCode == 200) {
           // ==========================================
@@ -233,6 +234,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
+
+
+
+
+
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {

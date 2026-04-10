@@ -4,10 +4,10 @@ class Endpoints {
   //     "https://pharmacy-sanyo-democrats-cube.trycloudflare.com/api";
   // static const String baseUrl = "http://10.0.0.4:8000/api";
   // static const String baseUrl = "http://192.168.0.104:8000/api";
-  static const String baseUrl = "https://fundamentals-includes-aerial-revenue.trycloudflare.com/api";
+  static const String baseUrl = "https://https://movements-powers-api-criticism.trycloudflare.com/api";
   // هام جداً: في الطرفية (Terminal) يجب تشغيل السيرفر بهذا الأمر:
   // php artisan serve --host=0.0.0.0
-
+static const String updateProfile = "$baseUrl/auth/update";
   // مسارات المصادقة
   static const String login = "$baseUrl/auth/login";
   static const String register = "$baseUrl/auth/register";
