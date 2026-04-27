@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../providers/notifications_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -12,33 +14,22 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  // Mock Data
-  final List<Map<String, dynamic>> notifications = [
-    {
-      'title': 'تم استلام طلبك! 🎉',
-      'body': 'جاري تجهيز طلبك من مطعم المكلا، سيكون عندك قريباً.',
-      'time': 'منذ 5 دقائق',
-      'type': 'order',
-      'isRead': false,
-    },
-    {
-      'title': 'خصم حصري لك 💸',
-      'body': 'استخدم الكود KHA10 للحصول على خصم 10% على أول طلب.',
-      'time': 'منذ ساعتين',
-      'type': 'offer',
-      'isRead': true,
-    },
-    {
-      'title': 'مرحباً بك في التطبيق 👋',
-      'body': 'نتمنى لك تجربة رائعة معنا.',
-      'time': 'منذ يوم',
-      'type': 'system',
-      'isRead': true,
-    },
-  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationsProvider>().fetchNotifications();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<NotificationsProvider>();
+    final notifications = provider.notifications;
+    final isLoading = provider.isLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Directionality(
         textDirection: TextDirection.rtl,
@@ -46,24 +37,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: SafeArea(
             child: Column(
               children: [
-                _buildAppBar(context),
+                _buildAppBar(context, isDark),
                 Expanded(
-                  child: notifications.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          itemCount: notifications.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 15),
-                          itemBuilder: (context, index) {
-                            return _buildNotificationCard(
-                                notifications[index]);
-                          },
-                        ),
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : (notifications.isEmpty
+                          ? _buildEmptyState(isDark)
+                          : ListView.separated(
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 15,
+                              ),
+                              itemCount: notifications.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 15),
+                              itemBuilder: (context, index) {
+                                return _buildNotificationCard(
+                                    notifications[index], isDark);
+                              },
+                            )),
                 ),
               ],
             ),
@@ -73,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  Widget _buildAppBar(BuildContext context, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
@@ -89,14 +82,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Icon(
                       Icons.arrow_forward_ios_rounded,
-                      color: Colors.white,
+                      color: isDark ? Colors.white : Colors.black87,
                       size: 18,
                     ),
                   ),
@@ -107,7 +100,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Text(
             "الإشعارات",
             style: GoogleFonts.cairo(
-              color: Colors.white,
+              color: isDark ? Colors.white : Colors.black87,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -118,21 +111,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.notifications_off_outlined,
-            color: Colors.white.withOpacity(0.2),
+            color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.2),
             size: 80,
           ),
           const SizedBox(height: 20),
           Text(
             "لا توجد إشعارات حالياً",
             style: GoogleFonts.cairo(
-              color: Colors.white54,
+              color: isDark ? Colors.white54 : Colors.black54,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -142,12 +135,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final bool isRead = notification['isRead'];
-    final String type = notification['type'];
+  Widget _buildNotificationCard(Map<String, dynamic> notification, bool isDark) {
+    final bool isRead = notification['isRead'] ?? (notification['read_at'] != null);
+    final String type = notification['type'] ?? 'system';
+    final String title = notification['title'] ?? 'إشعار';
+    final String body = notification['body'] ?? '';
+    final String time = notification['time'] ?? notification['created_at'] ?? '';
 
     IconData iconData;
     Color iconColor;
+    Color? customCardBgColor;
+    Color? customCardBorderColor;
 
     switch (type) {
       case 'order':
@@ -158,6 +156,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         iconData = Icons.local_offer;
         iconColor = const Color(0xFFFF416C); // Pink/Red
         break;
+      case 'rejection':
+        iconData = Icons.error_outline;
+        iconColor = Colors.redAccent;
+        customCardBgColor = isDark 
+            ? Colors.red.withOpacity(0.15) 
+            : Colors.red.withOpacity(0.05);
+        customCardBorderColor = Colors.red.withOpacity(0.3);
+        break;
       case 'system':
       default:
         iconData = Icons.notifications;
@@ -165,23 +171,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: isRead
-            ? const Color(0xFF1E1A34)
-            : const Color(0xFF2A2640).withOpacity(0.8), // Slightly lighter for unread
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isRead
-              ? Colors.white.withOpacity(0.05)
-              : const Color(0xFFE58B29).withOpacity(0.3), // Orange hint for unread
+    final defaultBgColor = isRead
+        ? (isDark ? const Color(0xFF1E1A34) : Colors.white.withOpacity(0.8))
+        : (isDark ? const Color(0xFF2A2640).withOpacity(0.8) : Colors.white);
+        
+    final defaultBorderColor = isRead
+        ? (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))
+        : (isDark ? const Color(0xFFE58B29).withOpacity(0.3) : const Color(0xFFE58B29).withOpacity(0.3));
+
+    return InkWell(
+      onTap: () {
+        if (!isRead) {
+          context.read<NotificationsProvider>().markAsRead(notification['id'].toString());
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: customCardBgColor ?? defaultBgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+          color: customCardBorderColor ?? defaultBorderColor,
         ),
-        boxShadow: isRead
+        boxShadow: isRead && customCardBgColor == null
             ? []
             : [
                 BoxShadow(
-                  color: const Color(0xFFE58B29).withOpacity(0.05),
+                  color: customCardBgColor != null 
+                      ? Colors.red.withOpacity(0.05) 
+                      : const Color(0xFFE58B29).withOpacity(0.05),
                   blurRadius: 10,
                   spreadRadius: 1,
                 )
@@ -211,9 +230,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        notification['title'],
+                        title,
                         style: GoogleFonts.cairo(
-                          color: Colors.white,
+                          color: isDark ? Colors.white : Colors.black87,
                           fontSize: 15,
                           fontWeight:
                               isRead ? FontWeight.w600 : FontWeight.bold,
@@ -224,8 +243,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE58B29),
+                        decoration: BoxDecoration(
+                          color: customCardBgColor != null ? Colors.redAccent : const Color(0xFFE58B29),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -233,18 +252,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  notification['body'],
+                  body,
                   style: GoogleFonts.cairo(
-                    color: Colors.white54,
+                    color: isDark ? Colors.white54 : Colors.black54,
                     fontSize: 13,
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  notification['time'],
+                  time,
                   style: GoogleFonts.cairo(
-                    color: Colors.white38,
+                    color: isDark ? Colors.white38 : Colors.black38,
                     fontSize: 11,
                   ),
                 ),
@@ -253,6 +272,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/auth_repository.dart';
 import '../../data/user_model.dart';
+import '../../../../core/services/firebase_messaging_service.dart';
 
 // --- Events ---
 abstract class AuthEvent {}
@@ -64,6 +65,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           event.user.email, 
           event.user.password
         );
+        FirebaseMessagingService().syncToken();
         emit(Authenticated(registeredUser));
       } catch (e) {
         // تنظيف رسالة الخطأ القادمة من الـ Repository
@@ -76,6 +78,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthLoading());
       try {
         final user = await authRepository.login(event.email, event.password);
+        FirebaseMessagingService().syncToken();
         emit(Authenticated(user));
       } catch (e) {
          // تنظيف رسالة الخطأ لتبدو جميلة للمستخدم

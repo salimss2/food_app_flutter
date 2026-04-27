@@ -1,50 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/services.dart';
-import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../providers/restaurant_provider.dart';
+import '../../../../models/restaurant_model.dart';
 
-class MealsListScreen extends StatefulWidget {
+class MealsListScreen extends ConsumerStatefulWidget {
   const MealsListScreen({super.key});
 
   @override
-  State<MealsListScreen> createState() => _MealsListScreenState();
+  ConsumerState<MealsListScreen> createState() => _MealsListScreenState();
 }
 
-class _MealsListScreenState extends State<MealsListScreen> {
-  List<dynamic> allMeals = [];
+class _MealsListScreenState extends ConsumerState<MealsListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Meal> allMeals = [];
+  List<Meal> displayedMeals = [];
   bool isLoadingMeals = true;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     fetchMeals();
   }
 
-  Future<void> fetchMeals() async {
+  void fetchMeals() {
     try {
-      final String response = await rootBundle.loadString(
-        'assets/data/mock_database.json',
-      );
-      final data = await json.decode(response);
-      final List<dynamic> restaurants = data['restaurants'] ?? [];
+      final asyncRestaurants = ref.read(restaurantProvider);
 
-      List<dynamic> tempMeals = [];
-      for (var restaurant in restaurants) {
-        if (restaurant['menu'] != null) {
-          tempMeals.addAll(restaurant['menu']);
+      List<Meal> tempMeals = [];
+      
+      asyncRestaurants.whenData((restaurants) {
+        for (var restaurant in restaurants) {
+          tempMeals.addAll(restaurant.meals); // From top-level meals
+          for (var menu in restaurant.menus) {
+            tempMeals.addAll(menu.meals); // From inner menus
+          }
         }
-      }
+      });
 
       setState(() {
         allMeals = tempMeals;
+        displayedMeals = List.from(allMeals);
         isLoadingMeals = false;
       });
     } catch (e) {
       setState(() {
         isLoadingMeals = false;
+      });
+    }
+  }
+
+  void _filterMeals(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        displayedMeals = List.from(allMeals);
+      });
+    } else {
+      setState(() {
+        displayedMeals = allMeals.where((meal) {
+          final name = meal.name.toLowerCase();
+          return name.contains(query.toLowerCase());
+        }).toList();
       });
     }
   }
@@ -81,6 +100,21 @@ class _MealsListScreenState extends State<MealsListScreen> {
                           ),
                         ),
                       )
+                    : displayedMeals.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 50.0),
+                          child: Center(
+                            child: Text(
+                              "لا توجد وجبات مطابقة لبحثك 🍽️",
+                              style: GoogleFonts.cairo(
+                                color: Colors.white54,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
                     : SliverGrid(
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
@@ -91,8 +125,8 @@ class _MealsListScreenState extends State<MealsListScreen> {
                               mainAxisSpacing: 15,
                             ),
                         delegate: SliverChildBuilderDelegate((context, index) {
-                          return _buildMealCard(allMeals[index]);
-                        }, childCount: allMeals.length),
+                          return _buildMealCard(displayedMeals[index]);
+                        }, childCount: displayedMeals.length),
                       ),
               ),
 
@@ -224,12 +258,21 @@ class _MealsListScreenState extends State<MealsListScreen> {
         border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: TextField(
+        controller: _searchController,
+        onChanged: _filterMeals,
         style: GoogleFonts.cairo(color: Colors.white),
         textAlign: TextAlign.right,
         decoration: InputDecoration(
           hintText: "ابحث عن مطعم أو وجبة",
           hintStyle: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
           prefixIcon: const Icon(Icons.search, color: Colors.white54),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+            onPressed: () {
+              _searchController.clear();
+              _filterMeals('');
+            },
+          ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 15),
         ),
@@ -240,17 +283,21 @@ class _MealsListScreenState extends State<MealsListScreen> {
   // ===========================================================================
   // 3. كرت الوجبة (Glassmorphism Style)
   // ===========================================================================
-  Widget _buildMealCard(Map<String, dynamic> meal) {
-    final String name = meal['name']?.toString() ?? 'وجبة';
+  Widget _buildMealCard(Meal meal) {
+    final String name = meal.name.isNotEmpty ? meal.name : 'وجبة';
     final String image =
-        meal['imageUrl']?.toString() ??
+        meal.imageUrl ??
         'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
-    final double price =
-        double.tryParse(
-          meal['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0',
-        ) ??
-        0.0;
-    final String category = meal['category']?.toString() ?? '';
+    
+    // Check for offers
+    final bool hasOffers = meal.offers.isNotEmpty;
+    final double price = hasOffers && meal.offers.first.discountPrice != null 
+        ? meal.offers.first.discountPrice! 
+        : meal.price;
+        
+    final double? oldPrice = hasOffers ? meal.price : null;
+    
+    final String category = "وجبات سريعة";
 
     return GestureDetector(
       onTap: () {
@@ -285,7 +332,20 @@ class _MealsListScreenState extends State<MealsListScreen> {
                     height: 120,
                     width: double.infinity,
                     color: Colors.white.withOpacity(0.05),
-                    child: Image.network(image, fit: BoxFit.cover),
+                    child: Image.network(
+                      image,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[850],
+                        child: const Center(
+                          child: Icon(
+                            Icons.fastfood,
+                            color: Colors.grey,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 // شعار المطعم (دائري فوق الصورة)
@@ -404,14 +464,15 @@ class _MealsListScreenState extends State<MealsListScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // السعر القديم (مشطوب)
-                        Text(
-                          "${(price * 1.2).toStringAsFixed(0)} ر.ي",
-                          style: GoogleFonts.poppins(
-                            color: Colors.white38,
-                            fontSize: 11,
-                            decoration: TextDecoration.lineThrough,
+                        if (oldPrice != null)
+                          Text(
+                            "${oldPrice.toStringAsFixed(0)} ر.ي",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white38,
+                              fontSize: 11,
+                              decoration: TextDecoration.lineThrough,
+                            ),
                           ),
-                        ),
                         // السعر الجديد
                         Text(
                           "${price.toStringAsFixed(0)} ر.ي",

@@ -13,7 +13,10 @@ void main() {
     final authRepository = AuthRepository(dioClient, prefs);
 
     // 2. Build our app and trigger a frame.
-    await tester.pumpWidget(MyApp(authRepository: authRepository));
+await tester.pumpWidget(MyApp(
+  authRepository: authRepository,
+  dioClient: dioClient, // 👉 تمرير المتغير لحل الخطأ
+));
 
     // 3. Verify that the app starts
     expect(find.byType(MyApp), findsOneWidget);

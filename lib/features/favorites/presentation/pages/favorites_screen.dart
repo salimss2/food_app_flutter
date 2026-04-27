@@ -21,6 +21,9 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FavoritesProvider>().fetchFavorites();
+    });
   }
 
   @override
@@ -58,10 +61,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                   child: TabBarView(
                     controller: _tabController,
                     physics: const BouncingScrollPhysics(),
-                    children: [
-                      _buildRestaurantsTab(),
-                      _buildMealsTab(),
-                    ],
+                    children: [_buildRestaurantsTab(), _buildMealsTab()],
                   ),
                 ),
               ],
@@ -521,10 +521,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
           const SizedBox(height: 10),
           Text(
             'اضغط على أيقونة القلب لإضافة العناصر هنا',
-            style: GoogleFonts.cairo(
-              color: Colors.white30,
-              fontSize: 13,
-            ),
+            style: GoogleFonts.cairo(color: Colors.white30, fontSize: 13),
           ),
         ],
       ),

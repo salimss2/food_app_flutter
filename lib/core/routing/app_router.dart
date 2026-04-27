@@ -21,6 +21,7 @@ import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/home/presentation/pages/restaurants_screen.dart';
 import '../../features/home/presentation/pages/meals_list_screen.dart'; // تأكد من صحة المسار
 import '../../features/home/presentation/pages/meal_detail_screen.dart'; // تأكد من صحة المسار
+import '../../models/restaurant_model.dart';
 import '../../features/home/presentation/pages/search_screen.dart'; // تأكد من دقة المسار
 
 // --- استيراد شاشات الإعدادات والبروفايل ---
@@ -107,8 +108,8 @@ abstract class AppRouter {
       GoRoute(
         path: '/meal-detail',
         builder: (context, state) {
-          final mealData = state.extra as Map<String, dynamic>? ?? {};
-          return MealDetailScreen(mealData: mealData);
+          final meal = state.extra as Meal;
+          return MealDetailScreen(meal: meal);
         },
       ),
       GoRoute(

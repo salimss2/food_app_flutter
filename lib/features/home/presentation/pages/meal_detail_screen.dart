@@ -4,12 +4,13 @@ import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../models/restaurant_model.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 
 class MealDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> mealData;
-  const MealDetailScreen({super.key, required this.mealData});
+  final Meal meal;
+  const MealDetailScreen({super.key, required this.meal});
 
   @override
   State<MealDetailScreen> createState() => _MealDetailScreenState();
@@ -29,15 +30,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _basePrice =
-        double.tryParse(
-          widget.mealData['price']?.toString().replaceAll(
-                RegExp(r'[^0-9.]'),
-                '',
-              ) ??
-              '0',
-        ) ??
-        0.0;
+    _basePrice = widget.meal.price;
   }
 
   double get _totalPrice {
@@ -148,9 +141,13 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           fit: StackFit.expand,
           children: [
             Image.network(
-              widget.mealData['imageUrl']?.toString() ??
+              widget.meal.imageUrl ??
                   'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.grey[850],
+                child: const Icon(Icons.fastfood, color: Colors.grey, size: 60),
+              ),
             ),
             // تدرج لوني لدمج الصورة مع الخلفية
             Container(
@@ -176,11 +173,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   // 2. كرت تفاصيل الوجبة الأساسية
   // ===========================================================================
   Widget _buildMealHeaderCard() {
-    final String name = widget.mealData['name']?.toString() ?? "اسم الوجبة";
-    final String category =
-        widget.mealData['category']?.toString() ?? "وجبات سريعة";
-    final String desc =
-        widget.mealData['description']?.toString() ?? "وصف للوجبة غير متوفر";
+    final String name = widget.meal.name.isNotEmpty ? widget.meal.name : 'وجبة';
+    final String category = 'وجبات سريعة';
+    final String desc = widget.meal.description.isNotEmpty
+        ? widget.meal.description
+        : 'وصف للوجبة غير متوفر';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -554,35 +551,46 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () {
+                                onTap: () async {
                                   List<String> selectedAddons = [];
                                   addons.forEach((key, value) {
                                     if (value) selectedAddons.add(key);
                                   });
 
-                                  Provider.of<CartProvider>(
-                                    context,
-                                    listen: false,
-                                  ).addItem(
-                                    CartItem(
-                                      id:
-                                          widget.mealData['id']?.toString() ??
-                                          DateTime.now().toString(),
-                                      name:
-                                          widget.mealData['name'] ??
-                                          "وجبة سريعة",
-                                      price: (_totalPrice / quantity),
-                                      imageUrl:
-                                          widget.mealData['imageUrl'] ??
-                                          "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80",
-                                      quantity: quantity,
-                                      addons: selectedAddons,
-                                    ),
-                                  );
+                                  try {
+                                    await Provider.of<CartProvider>(
+                                      context,
+                                      listen: false,
+                                    ).addItem(
+                                      CartItem(
+                                        mealId: widget.meal.id.isNotEmpty
+                                            ? widget.meal.id
+                                            : DateTime.now().toString(),
+                                        name: widget.meal.name.isNotEmpty
+                                            ? widget.meal.name
+                                            : 'وجبة سريعة',
+                                        price: (_totalPrice / quantity),
+                                        imageUrl: widget.meal.imageUrl ??
+                                            'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+                                        quantity: quantity,
+                                        addons: selectedAddons,
+                                      ),
+                                    );
 
-                                  setState(() {
-                                    isAddedToCart = true;
-                                  });
+                                    setState(() {
+                                      isAddedToCart = true;
+                                    });
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'فشل الإضافة: ${e.toString()}',
+                                          style: GoogleFonts.cairo(color: Colors.white),
+                                        ),
+                                        backgroundColor: Colors.red.shade700,
+                                      ),
+                                    );
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(15),
                                 child: Padding(

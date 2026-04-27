@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,10 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/schedule_provider.dart';
+import '../../../../providers/order_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -22,7 +25,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? selectedWalletName;
   String? selectedWalletAccount;
   final TextEditingController _receiptController = TextEditingController();
-  bool isImageAttached = false;
+  File? _receiptImage;
 
   // --- Schedule State ---
   DateTime? _scheduledDateTime;
@@ -359,8 +362,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 10),
           _buildRadioOption("الدفع عند الاستلام", 'cash'),
           _buildRadioOption("الدفع من رصيدي ( 0 )", 'balance'),
-          _buildRadioOption("الدفع استخدام المحفظة الإلكترونية", 'wallet'),
-          if (_selectedPaymentMethod == 'wallet' &&
+          _buildRadioOption("الدفع استخدام المحفظة الإلكترونية", 'bank_transfer'),
+          if (_selectedPaymentMethod == 'bank_transfer' &&
               selectedWalletName != null) ...[
             const SizedBox(height: 15),
             Container(
@@ -407,35 +410,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        isImageAttached = !isImageAttached;
-                      });
+                    onPressed: () async {
+                      final picker = ImagePicker();
+                      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                      if (pickedFile != null) {
+                        setState(() {
+                          _receiptImage = File(pickedFile.path);
+                        });
+                      }
                     },
                     icon: Icon(
-                      isImageAttached ? Icons.check_circle : Icons.upload_file,
-                      color: isImageAttached ? Colors.green : Colors.white,
+                      _receiptImage != null ? Icons.check_circle : Icons.upload_file,
+                      color: _receiptImage != null ? Colors.green : Colors.white,
                       size: 18,
                     ),
                     label: Text(
-                      isImageAttached
-                          ? "تم إرفاق الصورة ✅"
+                      _receiptImage != null
+                          ? "تم الإرفاق: ${_receiptImage!.path.split('/').last}"
                           : "إرفاق صورة الإيداع",
                       style: GoogleFonts.cairo(
-                        color: isImageAttached ? Colors.green : Colors.white,
+                        color: _receiptImage != null ? Colors.green : Colors.white,
                         fontSize: 13,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                        color: isImageAttached
+                        color: _receiptImage != null
                             ? Colors.green
                             : Colors.white.withOpacity(0.2),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                       minimumSize: const Size(double.infinity, 40),
                     ),
                   ),
@@ -453,7 +462,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return InkWell(
       onTap: () {
         setState(() => _selectedPaymentMethod = value);
-        if (value == 'wallet') {
+        if (value == 'bank_transfer') {
           _showWalletsBottomSheet(context);
         }
       },
@@ -473,7 +482,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               title,
               style: GoogleFonts.cairo(color: Colors.white, fontSize: 13),
             ),
-            if (value == 'wallet') ...[
+            if (value == 'bank_transfer') ...[
               const Spacer(),
               const Icon(
                 Icons.keyboard_arrow_down,
@@ -936,12 +945,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Expanded(
             flex: 2,
             child: InkWell(
-              onTap: cart.items.isEmpty
+              onTap:
+                  (cart.items.isEmpty ||
+                      context.read<OrderProvider>().isLoading)
                   ? null
-                  : () {
-                      if (_selectedPaymentMethod == 'wallet') {
+                  : () async {
+                      if (_selectedPaymentMethod == 'bank_transfer') {
                         if (_receiptController.text.isEmpty &&
-                            !isImageAttached) {
+                            _receiptImage == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -956,39 +967,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         }
                       }
 
-                      // --- Scheduled Order Logic ---
-                      if (_isScheduled) {
-                        if (_scheduledDateTime == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'الرجاء اختيار وقت الجدولة',
-                                style: GoogleFonts.cairo(color: Colors.white),
-                              ),
-                              backgroundColor: Colors.red.shade700,
-                              duration: const Duration(seconds: 3),
-                              behavior: SnackBarBehavior.floating,
+                      // --- Unified Checkout Logic: POST /api/v1/orders ---
+                      if (_isScheduled && _scheduledDateTime == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'الرجاء اختيار وقت الجدولة',
+                              style: GoogleFonts.cairo(color: Colors.white),
                             ),
-                          );
-                          return;
-                        }
-
-                        final scheduleProv = context.read<ScheduleProvider>();
-                        final orderId = DateTime.now().millisecondsSinceEpoch
-                            .toString();
-                        scheduleProv.addScheduledOrder(
-                          ScheduledOrder(
-                            id: orderId,
-                            items: List.from(cart.items),
-                            totalPrice: grandTotal,
-                            scheduledDateTime: _scheduledDateTime!,
+                            backgroundColor: Colors.red.shade700,
+                            duration: const Duration(seconds: 3),
+                            behavior: SnackBarBehavior.floating,
                           ),
                         );
+                        return;
+                      }
+
+                      final orderProv = context.read<OrderProvider>();
+                      final (success, errorMsg, orderData) =
+                          await orderProv.placeOrder(
+                        scheduledAt: _isScheduled ? _scheduledDateTime : null,
+                        paymentMethod: _selectedPaymentMethod,
+                        receiptNumber: _receiptController.text.isNotEmpty ? _receiptController.text : null,
+                        receiptImage: _receiptImage,
+                      );
+
+                      if (!context.mounted) return;
+
+                      if (success) {
                         cart.clearCart();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'تمت جدولة طلبك بنجاح! 🎉 سيتم التسليم في الوقت الذي قمت بجدولته.',
+                              _isScheduled 
+                                ? 'تمت جدولة طلبك بنجاح! 🎉' 
+                                : 'تم تأكيد طلبك بنجاح! 🎉',
                               style: GoogleFonts.cairo(color: Colors.white),
                             ),
                             backgroundColor: Colors.green.shade700,
@@ -996,40 +1009,61 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
-                        context.go('/home');
-                        return;
-                      }
 
-                      // --- Immediate Order ---
-                      final orderData = {
-                        'orderId':
-                            '#${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-                        'items': List.from(cart.items),
-                        'subtotal': cart.totalPrice,
-                        'deliveryFee': deliveryFee,
-                        'total': grandTotal,
-                      };
-                      context.push('/order-status', extra: orderData);
-                      cart.clearCart();
+                        if (_isScheduled) {
+                          context.go('/home');
+                        } else {
+                          context.go('/order-status',
+                              extra: orderData ?? <String, dynamic>{});
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              errorMsg ?? 
+                                (_isScheduled 
+                                  ? 'عذراً، حدث خطأ أثناء جدولة الطلب' 
+                                  : 'عذراً، حدث خطأ أثناء تأكيد الطلب'),
+                              style: GoogleFonts.cairo(color: Colors.white),
+                            ),
+                            backgroundColor: Colors.red.shade700,
+                            duration: const Duration(seconds: 4),
+                            behavior: _isScheduled ? SnackBarBehavior.floating : SnackBarBehavior.fixed,
+                          ),
+                        );
+                      }
                     },
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: cart.items.isEmpty
-                      ? Colors.grey.shade700
-                      : const Color(0xFFD32F2F),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    _isScheduled ? "تأكيد الجدولة" : "تنفيذ الطلب",
-                    style: GoogleFonts.cairo(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+              child: Consumer<OrderProvider>(
+                builder: (context, orderProv, _) {
+                  return Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: cart.items.isEmpty
+                          ? Colors.grey.shade700
+                          : const Color(0xFFD32F2F),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                ),
+                    child: Center(
+                      child: orderProv.isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              _isScheduled ? "تأكيد الجدولة" : "تنفيذ الطلب",
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

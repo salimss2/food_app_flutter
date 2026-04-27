@@ -7,13 +7,19 @@ class CustomBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       height: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         image: DecorationImage(
           // تأكد من إضافة الصورة في ملف pubspec.yaml تحت قسم assets
-          image: AssetImage('assets/images/group.jpg'), // مسار صورة الخلفية
+          image: AssetImage(
+            isDark
+                ? 'assets/images/group.jpg'
+                : 'assets/images/lightmoodbb.jpg',
+          ), // مسار صورة الخلفية
           fit: BoxFit.cover, // لتغطية الشاشة بالكامل
         ),
       ),

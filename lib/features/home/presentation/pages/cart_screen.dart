@@ -3,12 +3,46 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Consumer, Provider;
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
 
-class CartScreen extends StatelessWidget {
+import '../../../../providers/restaurant_provider.dart';
+import '../../../../models/restaurant_model.dart';
+
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  ConsumerState<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends ConsumerState<CartScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final asyncRestaurants = ref.read(restaurantProvider);
+      
+      List<Map<String, dynamic>> mappedRestaurants = [];
+      
+      asyncRestaurants.whenData((restaurants) {
+        for (var r in restaurants) {
+          mappedRestaurants.add({
+            'id': r.id,
+            'name': r.name,
+            'menu': [
+              ...r.meals.map((m) => {'id': m.id, 'name': m.name, 'imageUrl': m.imageUrl}),
+              ...r.menus.expand((menu) => menu.meals).map((m) => {'id': m.id, 'name': m.name, 'imageUrl': m.imageUrl}),
+            ],
+          });
+        }
+      });
+
+      context.read<CartProvider>().fetchCart(allRestaurants: mappedRestaurants);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +60,12 @@ class CartScreen extends StatelessWidget {
                 Expanded(
                   child: Consumer<CartProvider>(
                     builder: (context, cart, _) {
+                      if (cart.isLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: Color(0xFFED922A)),
+                        );
+                      }
+
                       if (cart.items.isEmpty) {
                         return Center(
                           child: Column(

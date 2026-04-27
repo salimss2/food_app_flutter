@@ -17,6 +17,32 @@ class ShinyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final List<Color> outerGradientColors = isDark
+        ? [
+            const Color.fromARGB(255, 92, 56, 255).withOpacity(0.8),
+            const Color.fromARGB(255, 106, 100, 129).withOpacity(0.8),
+          ]
+        : [
+            const Color(0xFF9D4EDD).withOpacity(0.8),
+            const Color(0xFF48CAE4).withOpacity(0.8),
+          ];
+
+    final List<Color> innerGradientColors = isDark
+        ? [
+            const Color.fromARGB(153, 78, 59, 155),
+            const Color.fromARGB(173, 17, 54, 135),
+          ]
+        : [
+            const Color(0xFF7209B7).withOpacity(0.8),
+            const Color(0xFF3A0CA3).withOpacity(0.9),
+          ];
+
+    final Color shadowColor = isDark 
+        ? Colors.white.withOpacity(0.2) 
+        : const Color(0xFF3A0CA3).withOpacity(0.2);
+
     return Container(
       width: width,
       height: 58,
@@ -26,21 +52,11 @@ class ShinyButton extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            const Color.fromARGB(
-              255,
-              92,
-              56,
-              255,
-            ).withOpacity(0.8), // لون أبيض ساطع جداً في الأعلى واليسار
-            const Color.fromARGB(255, 106, 100, 129).withOpacity(
-              0.8,
-            ), // لون أبيض أقل سطوعاً قليلاً في الأسفل واليمين ليعطي عمقاً
-          ],
+          colors: outerGradientColors,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.2),
+            color: shadowColor,
             blurRadius: 10,
             spreadRadius: 1,
           ),
@@ -51,15 +67,12 @@ class ShinyButton extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            // التدرج اللوني الداخلي (الأزرق/البنفسجي)
-            gradient: const LinearGradient(
+            // التدرج اللوني الداخلي
+            gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              stops: [0.0, 0.75],
-              colors: [
-                Color.fromARGB(153, 78, 59, 155), // شفاف تماماً في الأعلى
-                Color.fromARGB(173, 17, 54, 135), // أزرق معتم في الأسفل
-              ],
+              stops: const [0.0, 0.75],
+              colors: innerGradientColors,
             ),
           ),
           child: ElevatedButton(

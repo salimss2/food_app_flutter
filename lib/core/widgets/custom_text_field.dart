@@ -38,6 +38,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white : Colors.black87;
+    final Color labelColor = isDark ? Colors.white70 : Colors.black54;
+    final Color hintColor = isDark ? Colors.white30 : Colors.black38;
+    final Color fillColor = isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.6);
+    final Color borderColor = isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1);
+    final Color iconColor = isDark ? Colors.white60 : Colors.black54;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -45,7 +53,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
         Text(
           widget.label.toUpperCase(),
           style: GoogleFonts.poppins(
-            color: Colors.white70,
+            color: labelColor,
             fontSize: 12,
             letterSpacing: 1.0,
             fontWeight: FontWeight.w600,
@@ -60,20 +68,27 @@ class _CustomTextFieldState extends State<CustomTextField> {
           validator: widget.validator,
           keyboardType: widget.keyboardType,
           onChanged: widget.onChanged,
-          style: GoogleFonts.poppins(color: Colors.white),
+          style: GoogleFonts.poppins(color: textColor),
 
           // هنا يكمن سر التصميم وإظهار الأخطاء
           decoration: InputDecoration(
             hintText: widget.hint,
             hintStyle: GoogleFonts.poppins(
-              color: Colors.white.withOpacity(0.3),
+              color: hintColor,
             ),
 
             // تفعيل لون الخلفية
             filled: true,
-            fillColor: Colors.black.withOpacity(0.3),
+            fillColor: fillColor,
 
-            prefixIcon: widget.prefixIcon,
+            prefixIcon: widget.prefixIcon != null
+                ? Theme(
+                    data: Theme.of(context).copyWith(
+                      iconTheme: IconThemeData(color: iconColor),
+                    ),
+                    child: widget.prefixIcon!,
+                  )
+                : null,
 
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
@@ -83,7 +98,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             // 1. الإطار في الحالة العادية (أبيض شفاف)
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+              borderSide: BorderSide(color: borderColor),
             ),
 
             // 2. الإطار عند التركيز والكتابة (أبيض أو أزرق حسب رغبتك)
@@ -119,7 +134,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 ? IconButton(
                     icon: Icon(
                       _obscureText ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.white.withOpacity(0.6),
+                      color: iconColor,
                     ),
                     onPressed: () {
                       setState(() {

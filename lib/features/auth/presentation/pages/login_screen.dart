@@ -50,9 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> signInWithGoogle() async {
     try {
       // 1. تهيئة خدمة جوجل (هام: ضع الـ Web Client ID هنا وليس الـ Android ID)
+      // 1. تهيئة خدمة جوجل 
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        serverClientId:
-            'رقم_الـ_Web_Client_ID_الخاص_بك_هنا.apps.googleusercontent.com', // ⚠️ تأكد من وضع الرقم الصحيح هنا
+        serverClientId: 'ضع_معرف_الويب_الخاص_بك_هنا.apps.googleusercontent.com', 
         scopes: ['email', 'profile'],
       );
 

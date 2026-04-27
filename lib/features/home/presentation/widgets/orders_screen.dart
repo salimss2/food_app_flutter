@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/widgets/custom_background.dart';
-import '../../../../core/widgets/global_exit_wrapper.dart';
+import 'package:provider/provider.dart';
+import '../../../../providers/order_provider.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -14,6 +15,12 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => context.read<OrderProvider>().fetchOrders());
+  }
+
   // ===========================================================================
   // بيانات وهمية للطلبات السابقة
   // ===========================================================================
@@ -100,7 +107,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GlobalExitWrapper(
+    return PopScope(
+      // Never allow the default system pop on this root-tab screen.
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return; // Already handled — shouldn't happen with canPop:false
+        // Back button pressed → go back to Home, not exit the app.
+        context.go('/home');
+      },
       child: Scaffold(
         body: Directionality(
           textDirection: TextDirection.rtl,
@@ -149,15 +163,50 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   _buildSectionTitle("الطلبات السابقة"),
                   const SizedBox(height: 5),
                   Expanded(
-                    child: ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      itemCount: _pastOrders.length,
-                      itemBuilder: (context, index) {
-                        return _buildOrderCard(_pastOrders[index]);
+                    child: Consumer<OrderProvider>(
+                      builder: (context, orderProv, _) {
+                        if (orderProv.isLoading) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: Color(0xFFED922A)),
+                          );
+                        }
+
+                        if (orderProv.orders.isEmpty) {
+                          return Center(
+                            child: Text(
+                              "لا توجد طلبات سابقة 📝",
+                              style: GoogleFonts.cairo(
+                                color: Colors.white54,
+                                fontSize: 16,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          itemCount: orderProv.orders.length,
+                          itemBuilder: (context, index) {
+                            final order = orderProv.orders[index];
+                            // Mapping backend order to UI structure
+                            final mappedOrder = {
+                              "id": "#ORD-${order['id']}",
+                              "restaurantName": "مطعم وبروست العمودي", // Dynamic if available
+                              "restaurantLogo": "assets/images/group.jpg",
+                              "date": order['created_at'] != null 
+                                  ? order['created_at'].toString().split('T')[0] 
+                                  : "تاريخ غير متوفر",
+                              "status": order['status'] ?? "مكتمل",
+                              "totalPrice": "${order['total_amount'] ?? order['total'] ?? 0} ر.ي",
+                              "items": "${order['items']?.length ?? 0} عناصر",
+                            };
+                            return _buildOrderCard(mappedOrder);
+                          },
+                        );
                       },
                     ),
                   ),
@@ -176,11 +225,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Widget _buildBackButton(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          context.go('/home');
-        }
+        // This is a root-tab screen — always go to Home.
+        context.go('/home');
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),

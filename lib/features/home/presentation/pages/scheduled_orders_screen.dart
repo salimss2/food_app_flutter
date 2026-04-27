@@ -8,8 +8,21 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/schedule_provider.dart';
 
-class ScheduledOrdersScreen extends StatelessWidget {
+class ScheduledOrdersScreen extends StatefulWidget {
   const ScheduledOrdersScreen({super.key});
+
+  @override
+  State<ScheduledOrdersScreen> createState() => _ScheduledOrdersScreenState();
+}
+
+class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ScheduleProvider>().fetchScheduledOrders();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +37,17 @@ class ScheduledOrdersScreen extends StatelessWidget {
                 Expanded(
                   child: Consumer<ScheduleProvider>(
                     builder: (context, scheduleProv, child) {
-                      final orders = scheduleProv.orders;
+                      if (scheduleProv.isLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: Color(0xFFED922A)),
+                        );
+                      }
+                      
+                      final orders = scheduleProv.scheduledOrders;
                       if (orders.isEmpty) {
                         return _buildEmptyState();
                       }
+                      
                       return ListView.separated(
                         physics: const BouncingScrollPhysics(),
                         padding: const EdgeInsets.symmetric(
@@ -40,7 +60,6 @@ class ScheduledOrdersScreen extends StatelessWidget {
                           return _buildScheduledOrderCard(
                             context,
                             orders[index],
-                            scheduleProv,
                           );
                         },
                       );
@@ -108,17 +127,12 @@ class ScheduledOrdersScreen extends StatelessWidget {
           Icon(Icons.schedule, color: Colors.white.withOpacity(0.15), size: 90),
           const SizedBox(height: 20),
           Text(
-            "لا توجد طلبات مجدولة حالياً 🕰️",
+            "لا توجد طلبات مجدولة",
             style: GoogleFonts.cairo(
               color: Colors.white54,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "يمكنك جدولة طلبك من شاشة الدفع",
-            style: GoogleFonts.cairo(color: Colors.white30, fontSize: 14),
           ),
         ],
       ),
@@ -127,13 +141,23 @@ class ScheduledOrdersScreen extends StatelessWidget {
 
   Widget _buildScheduledOrderCard(
     BuildContext context,
-    ScheduledOrder order,
-    ScheduleProvider scheduleProv,
+    Map<String, dynamic> order,
   ) {
-    final dateFormat = DateFormat('yyyy/MM/dd', 'ar');
+    final scheduledAtStr = order['scheduled_at']?.toString() ?? '';
+    DateTime scheduledDate;
+    try {
+      scheduledDate = DateTime.parse(scheduledAtStr);
+    } catch (e) {
+      scheduledDate = DateTime.now();
+    }
+    final dateFormat = DateFormat('yyyy/MM/dd', 'en'); 
     final timeFormat = DateFormat('hh:mm a', 'ar');
-    final formattedDate = dateFormat.format(order.scheduledDateTime);
-    final formattedTime = timeFormat.format(order.scheduledDateTime);
+    final formattedDate = dateFormat.format(scheduledDate);
+    final formattedTime = timeFormat.format(scheduledDate);
+
+    final orderNumber = order['order_number']?.toString() ?? '';
+    final itemsCount = order['items_count']?.toString() ?? '0';
+    final totalAmount = order['total_amount']?.toString() ?? '0';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -173,7 +197,7 @@ class ScheduledOrdersScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "طلب #${order.id.substring(order.id.length - 6)}",
+                      "طلب #$orderNumber",
                       style: GoogleFonts.cairo(
                         color: Colors.white,
                         fontSize: 15,
@@ -181,7 +205,7 @@ class ScheduledOrdersScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      "${order.items.length} عناصر",
+                      "$itemsCount عناصر",
                       style: GoogleFonts.cairo(
                         color: Colors.white54,
                         fontSize: 12,
@@ -260,7 +284,7 @@ class ScheduledOrdersScreen extends StatelessWidget {
                 style: GoogleFonts.cairo(color: Colors.white54, fontSize: 13),
               ),
               Text(
-                "${order.totalPrice.toStringAsFixed(0)} ر.ي",
+                "$totalAmount ر.ي",
                 style: GoogleFonts.poppins(
                   color: const Color(0xFFED922A),
                   fontSize: 16,
@@ -270,224 +294,254 @@ class ScheduledOrdersScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 15),
-
-          // --- Action Buttons ---
-          Row(
-            children: [
-              // Edit Button
-              Expanded(
-                child: InkWell(
-                  onTap: () =>
-                      _showEditScheduleSheet(context, order, scheduleProv),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2640),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFED922A).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.edit,
-                          color: Color(0xFFED922A),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "تعديل الموعد",
-                          style: GoogleFonts.cairo(
-                            color: const Color(0xFFED922A),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          Divider(color: Colors.white.withOpacity(0.05)),
+          const SizedBox(height: 5),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () => _showOrderDetailsBottomSheet(context, order),
+              icon: const Icon(Icons.remove_red_eye_outlined, color: Color(0xFFED922A), size: 18),
+              label: Text(
+                'تفاصيل الطلب',
+                style: GoogleFonts.cairo(
+                  color: const Color(0xFFED922A),
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 10),
-              // Cancel Button
-              Expanded(
-                child: InkWell(
-                  onTap: () =>
-                      _showCancelConfirmation(context, order, scheduleProv),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD32F2F).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFD32F2F).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.cancel_outlined,
-                          color: Color(0xFFD32F2F),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "إلغاء الطلب",
-                          style: GoogleFonts.cairo(
-                            color: const Color(0xFFD32F2F),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                backgroundColor: const Color(0xFFED922A).withOpacity(0.1),
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showEditScheduleSheet(
-    BuildContext context,
-    ScheduledOrder order,
-    ScheduleProvider scheduleProv,
-  ) async {
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: order.scheduledDateTime,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 30)),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFFED922A),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1E1A34),
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: const Color(0xFF140C36),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (pickedDate != null && context.mounted) {
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(order.scheduledDateTime),
-        builder: (context, child) {
-          return Theme(
-            data: ThemeData.dark().copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: Color(0xFFED922A),
-                onPrimary: Colors.white,
-                surface: Color(0xFF1E1A34),
-                onSurface: Colors.white,
-              ),
-              dialogBackgroundColor: const Color(0xFF140C36),
-            ),
-            child: child!,
-          );
-        },
-      );
-
-      if (pickedTime != null && context.mounted) {
-        final newDateTime = DateTime(
-          pickedDate.year,
-          pickedDate.month,
-          pickedDate.day,
-          pickedTime.hour,
-          pickedTime.minute,
-        );
-        scheduleProv.updateSchedule(order.id, newDateTime);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تحديث موعد التوصيل بنجاح ✅',
-              style: GoogleFonts.cairo(color: Colors.white),
-            ),
-            backgroundColor: Colors.green.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+  void _showOrderDetailsBottomSheet(BuildContext context, Map<String, dynamic> order) {
+    final scheduledAtStr = order['scheduled_at']?.toString() ?? '';
+    DateTime scheduledDate;
+    try {
+      scheduledDate = DateTime.parse(scheduledAtStr);
+    } catch (e) {
+      scheduledDate = DateTime.now();
     }
-  }
+    final timeFormat = DateFormat('yyyy/MM/dd - hh:mm a', 'ar');
+    final formattedTime = timeFormat.format(scheduledDate);
+    
+    final orderNumber = order['order_number']?.toString() ?? '';
+    final itemsCount = order['items_count']?.toString() ?? '0';
+    final totalAmount = order['total_amount']?.toString() ?? '0';
 
-  void _showCancelConfirmation(
-    BuildContext context,
-    ScheduledOrder order,
-    ScheduleProvider scheduleProv,
-  ) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) {
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: const Color(0xFF1E1A34),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1E1A34),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            title: Text(
-              "إلغاء الطلب المجدول",
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            content: Text(
-              "هل أنت متأكد من إلغاء هذا الطلب المجدول؟ لا يمكن التراجع عن هذا الإجراء.",
-              style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  "تراجع",
-                  style: GoogleFonts.cairo(color: Colors.white54),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  scheduleProv.cancelOrder(order.id);
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'تم إلغاء الطلب المجدول بنجاح',
-                        style: GoogleFonts.cairo(color: Colors.white),
+                const SizedBox(height: 20),
+                
+                // Order Number and Status
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "طلب #$orderNumber",
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      backgroundColor: Colors.red.shade700,
-                      behavior: SnackBarBehavior.floating,
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD32F2F),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFED922A).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "مجدول",
+                        style: GoogleFonts.cairo(
+                          color: const Color(0xFFED922A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                
+                // Brief Summary
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2640).withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("الوقت المجدول", style: GoogleFonts.cairo(color: Colors.white54)),
+                          Text(formattedTime, style: GoogleFonts.poppins(color: Colors.white)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("عدد العناصر", style: GoogleFonts.cairo(color: Colors.white54)),
+                          Text("$itemsCount", style: GoogleFonts.poppins(color: Colors.white)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("المجموع الكلي", style: GoogleFonts.cairo(color: Colors.white54)),
+                          Text("$totalAmount ر.ي", style: GoogleFonts.poppins(color: const Color(0xFFED922A), fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                child: Text(
-                  "نعم، إلغاء",
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const SizedBox(height: 25),
+                
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // TODO: Implement edit time
+                          print("Edit Time tapped");
+                        },
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: Text(
+                          "تعديل الموعد",
+                          style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFED922A),
+                          side: const BorderSide(color: Color(0xFFED922A)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final shouldCancel = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: AlertDialog(
+                                backgroundColor: const Color(0xFF1E1A34),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                title: Text(
+                                  "تأكيد الإلغاء",
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                content: Text(
+                                  "هل أنت متأكد من إلغاء الطلب؟",
+                                  style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: Text("تراجع", style: GoogleFonts.cairo(color: Colors.white54)),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFD32F2F),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text("نعم، إلغاء", style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          if (shouldCancel == true && context.mounted) {
+                            final orderId = order['id'];
+                            final int parsedId = orderId is int ? orderId : int.tryParse(orderId.toString()) ?? 0;
+                            
+                            final success = await context.read<ScheduleProvider>().cancelOrder(parsedId);
+                            if (success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'تم إلغاء الطلب بنجاح',
+                                    style: GoogleFonts.cairo(color: Colors.white),
+                                  ),
+                                  backgroundColor: Colors.green.shade700,
+                                ),
+                              );
+                              Navigator.pop(context); // Close the bottom sheet
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.cancel_outlined, size: 18, color: Colors.white),
+                        label: Text(
+                          "إلغاء الطلب",
+                          style: GoogleFonts.cairo(fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+              ],
+            ),
           ),
         );
       },

@@ -1,4 +1,6 @@
+import 'package:customer_app/core/api/dio_client.dart';
 import 'package:customer_app/core/api/endpoints.dart';
+import 'package:customer_app/features/auth/data/profile_repository.dart';
 import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -120,22 +122,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // استيراد حزمة Dio في أعلى الملف إذا لم تكن موجودة
 
   // --- دالة الحفظ المحدثة (حفظ في السيرفر ثم محلياً) ---
-  Future<void> _saveProfile() async {
+Future<void> _saveProfile() async {
     FocusScope.of(context).unfocus();
 
     if (_formKey.currentState!.validate()) {
       setState(() {
-        isLoading = true; // إظهار حالة التحميل
+        isLoading = true;
       });
 
       try {
-        // 1. جلب التوكن الخاص بالمستخدم من SharedPreferences أو من AuthBloc
         final prefs = await SharedPreferences.getInstance();
-        final String? token = prefs.getString(
-          'auth_token',
-        ); // تأكد من اسم المفتاح الذي تحفظ به التوكن عند تسجيل الدخول
-
-        // 2. تجهيز البيانات للإرسال (FormData لدعم رفع الصور)
+        
+        // 1. تجهيز البيانات للإرسال
         final formData = FormData.fromMap({
           'name': _nameController.text,
           'email': _emailController.text,
@@ -144,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'location': _locationController.text,
         });
 
-        // 3. إضافة الصورة إذا تم اختيارها
+        // 2. إضافة الصورة إذا تم اختيارها
         if (_imageFile != null) {
           formData.files.add(
             MapEntry(
@@ -157,67 +155,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
 
-        // 4. إرسال الطلب للسيرفر
-        final dio = Dio();
-final response = await dio.post(
-  Endpoints.updateProfile, // <--- هنا نستخدم المتغير بدلاً من الرابط النصي
-  data: formData,
-  options: Options(
-    headers: {
-      'Authorization': 'Bearer $token',
-      'Accept': 'application/json',
-    },
-  ),
-);
+        // 3. استدعاء ProfileRepository بدلاً من استخدام Dio مباشرة هنا
+        // (ملاحظة: إذا كنت تستخدم get_it أو Provider، يفضل جلب الـ Repository من خلالهما)
+        // للتبسيط هنا، سنقوم بإنشائه إذا لم يكن محقوناً مسبقاً:
+        // الافتراض أن لديك DioClient متوفر، أو استخدم طريقة الحقن الخاصة بمشروعكم
+        
+        /* * مثال إذا كنت تستخدم RepositoryProvider من Bloc:
+         * final profileRepo = context.read<ProfileRepository>();
+         * * أو إذا كنت تمرره محلياً بغرض التجربة:
+         */
+        final dioClient = context.read<DioClient>(); // أو أي طريقة تستخدمها لجلب DioClient
+        final profileRepo = ProfileRepository(dioClient, prefs);
 
-        if (response.statusCode == 200) {
-          // ==========================================
-          // 5. إذا نجح الحفظ في السيرفر، نحفظ البيانات محلياً
-          // ==========================================
+        // إرسال الطلب واستقبال الموديل المحدث
+        final updatedUser = await profileRepo.updateProfile(formData);
 
-          await prefs.setString('saved_phone', _phoneController.text);
-          await prefs.setString('saved_address', _addressController.text);
-          await prefs.setString('saved_location', _locationController.text);
+        // 4. تحديث الـ AuthBloc بالبيانات الجديدة لكي يراها التطبيق بالكامل
+        // (تأكد من وجود حدث مثل UpdateUserEvent في AuthBloc الخاص بك)
+        // context.read<AuthBloc>().add(UpdateUserEvent(updatedUser)); 
 
-          // حفظ الصورة بشكل دائم محلياً
-          if (_imageFile != null) {
-            final directory = await getApplicationDocumentsDirectory();
-            final String fileName = path.basename(_imageFile!.path);
-            final String permanentPath = '${directory.path}/$fileName';
+        // 5. حفظ البيانات المساعدة محلياً
+        await prefs.setString('saved_phone', _phoneController.text);
+        await prefs.setString('saved_address', _addressController.text);
+        await prefs.setString('saved_location', _locationController.text);
 
-            if (_imageFile!.path != permanentPath) {
-              final File permanentImage = await _imageFile!.copy(permanentPath);
-              await prefs.setString('saved_image_path', permanentImage.path);
-              _imageFile = permanentImage;
-            }
-          }
+        // حفظ الصورة بشكل دائم محلياً
+        if (_imageFile != null) {
+          final directory = await getApplicationDocumentsDirectory();
+          final String fileName = path.basename(_imageFile!.path);
+          final String permanentPath = '${directory.path}/$fileName';
 
-          if (mounted) {
-            setState(() {
-              hasUnsavedChanges = false;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'تم حفظ جميع التغييرات بنجاح!',
-                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-                ),
-                backgroundColor: const Color(0xFF0F55E8),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            );
+          if (_imageFile!.path != permanentPath) {
+            final File permanentImage = await _imageFile!.copy(permanentPath);
+            await prefs.setString('saved_image_path', permanentImage.path);
+            _imageFile = permanentImage;
           }
         }
+
+        if (mounted) {
+          setState(() {
+            hasUnsavedChanges = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'تم حفظ جميع التغييرات بنجاح!',
+                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: const Color(0xFF0F55E8),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
       } catch (e) {
-        // 6. التعامل مع أخطاء السيرفر
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'حدث خطأ أثناء حفظ البيانات. يرجى المحاولة لاحقاً.',
+                e.toString().replaceAll('Exception:', '').trim(), // عرض رسالة الخطأ القادمة من الـ Repository
                 style: GoogleFonts.cairo(),
               ),
               backgroundColor: Colors.redAccent,
@@ -228,13 +226,12 @@ final response = await dio.post(
       } finally {
         if (mounted) {
           setState(() {
-            isLoading = false; // إخفاء حالة التحميل
+            isLoading = false;
           });
         }
       }
     }
   }
-
 
 
 
@@ -267,18 +264,11 @@ final response = await dio.post(
             }
           }
         } else {
-          // SCENARIO 2: No unsaved changes. Safe to navigate.
-          if (GoRouter.of(context).canPop()) {
-            // Not a root screen, just go back normally.
-            if (context.mounted) context.pop();
-          } else {
-            // Root screen (Bottom Nav) -> Show the global App Exit dialog!
-            final bool shouldExit =
-                await showExitConfirmationDialog(context) ?? false;
-            if (shouldExit) {
-              SystemNavigator.pop();
-            }
-          }
+          // SCENARIO 2: No unsaved changes — safe to navigate away.
+          // This is a root-tab screen (reached via context.go), so the
+          // GoRouter stack is always empty here. Never exit the app;
+          // always go back to Home.
+          if (context.mounted) context.go('/home');
         }
       },
       child: Scaffold(

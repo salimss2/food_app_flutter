@@ -4,13 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
 Future<bool?> showExitConfirmationDialog(BuildContext context) {
+  final bool isDark = Theme.of(context).brightness == Brightness.dark;
+  final Color bgColor = isDark ? const Color(0xFF140C36) : Colors.white;
+  final Color titleColor = isDark ? Colors.white : Colors.black87;
+  final Color contentColor = isDark ? Colors.white70 : Colors.black87;
+  final Color cancelColor = isDark ? Colors.white54 : Colors.black54;
+
   return showDialog<bool>(
     context: context,
     builder: (context) {
       return Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          backgroundColor: const Color(0xFF140C36),
+          backgroundColor: bgColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.0),
           ),
@@ -21,7 +27,7 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
               Text(
                 "تأكيد الخروج",
                 style: GoogleFonts.cairo(
-                  color: Colors.white,
+                  color: titleColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -29,7 +35,7 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
           ),
           content: Text(
             "هل أنت متأكد أنك تريد الخروج من التطبيق؟",
-            style: GoogleFonts.cairo(color: Colors.white70, fontSize: 16),
+            style: GoogleFonts.cairo(color: contentColor, fontSize: 16),
           ),
           actions: [
             TextButton(
@@ -37,7 +43,7 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
               child: Text(
                 "إلغاء",
                 style: GoogleFonts.cairo(
-                  color: Colors.white54,
+                  color: cancelColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),

@@ -1,56 +1,45 @@
-import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Consumer, Provider;
 
 import '../../../../core/widgets/custom_background.dart';
-import '../../../../core/widgets/global_exit_wrapper.dart';
 import '../../../../providers/favorites_provider.dart';
+import '../../../../providers/restaurant_provider.dart';
 
-class RestaurantsScreen extends StatefulWidget {
+class RestaurantsScreen extends ConsumerStatefulWidget {
   const RestaurantsScreen({super.key});
 
   @override
-  State<RestaurantsScreen> createState() => _RestaurantsScreenState();
+  ConsumerState<RestaurantsScreen> createState() => _RestaurantsScreenState();
 }
 
-class _RestaurantsScreenState extends State<RestaurantsScreen> {
+class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
   // تم تعيين الاندكس إلى 1 ليكون مطابقاً لزر "البحث / تصفح المطاعم"
   int _selectedIndex = 1;
 
-  List<dynamic> allRestaurants = [];
-  bool isLoading = true;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
-  void initState() {
-    super.initState();
-    loadRestaurants();
-  }
-
-  Future<void> loadRestaurants() async {
-    try {
-      final String response = await rootBundle.loadString(
-        'assets/data/mock_database.json',
-      );
-      final data = await json.decode(response);
-      setState(() {
-        allRestaurants = data['restaurants'];
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      debugPrint("Error loading restaurants: $e");
-    }
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GlobalExitWrapper(
+    return PopScope(
+      // This is a root-tab screen — never allow the system pop here.
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return;
+        // Hardware back button → always go to Home (never exit the app).
+        context.go('/home');
+      },
       child: Scaffold(
         body: Directionality(
           textDirection: TextDirection.rtl,
@@ -103,20 +92,31 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   // 1. شريط البحث
   // ===========================================================================
   Widget _buildSearchBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1A34).withOpacity(0.60),
+        color: isDark ? const Color(0xFF1E1A34).withOpacity(0.60) : Colors.white.withOpacity(0.7),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
       ),
       child: TextField(
-        style: GoogleFonts.cairo(color: Colors.white),
+        controller: _searchController,
+        onChanged: (value) => setState(() => _searchQuery = value),
+        style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
         textAlign: TextAlign.right,
         decoration: InputDecoration(
           hintText: "عن ماذا تبحث؟",
-          hintStyle: GoogleFonts.cairo(color: Colors.white54),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
-          suffixIcon: const Icon(Icons.qr_code_scanner, color: Colors.white54),
+          hintStyle: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54),
+          prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.black54),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.close, color: isDark ? Colors.white54 : Colors.black54),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : Icon(Icons.qr_code_scanner, color: isDark ? Colors.white54 : Colors.black54),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 15),
         ),
@@ -140,15 +140,16 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   }
 
   Widget _buildCategoryItem(String title, IconData icon, bool isNew) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Container(
           width: 70,
           height: 70,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1A34).withOpacity(0.6),
+            color: isDark ? const Color(0xFF1E1A34).withOpacity(0.6) : Colors.white.withOpacity(0.7),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.1)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.2),
@@ -162,8 +163,8 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
               icon,
               size: 35,
               color: isNew
-                  ? Colors.purpleAccent
-                  : Colors.white.withOpacity(0.7),
+                  ? (isDark ? Colors.purpleAccent : const Color(0xFF0F55E8))
+                  : (isDark ? Colors.white.withOpacity(0.7) : Colors.black87),
             ),
           ),
         ),
@@ -171,7 +172,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
         Text(
           title,
           style: GoogleFonts.cairo(
-            color: Colors.white,
+            color: isDark ? Colors.white : Colors.black87,
             fontSize: 13,
             fontWeight: FontWeight.bold,
           ),
@@ -184,48 +185,92 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   // 3. بطاقات المطاعم
   // ===========================================================================
   Widget _buildRestaurantList() {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.red));
-    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final asyncRestaurants = ref.watch(restaurantProvider);
 
-    if (allRestaurants.isEmpty) {
-      return Center(
-        child: Text(
-          "لا توجد مطاعم",
-          style: GoogleFonts.cairo(color: Colors.white),
-        ),
-      );
-    }
+    return asyncRestaurants.when(
+      data: (allRestaurants) {
+        if (allRestaurants.isEmpty) {
+          return Center(
+            child: Text(
+              "لا توجد مطاعم",
+              style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
+            ),
+          );
+        }
 
-    return ListView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      itemCount: allRestaurants.length,
-      itemBuilder: (context, index) {
-        final restaurant = allRestaurants[index];
-        final String name = restaurant['name']?.toString() ?? 'اسم المطعم';
-        final String desc = restaurant['description']?.toString() ?? '';
-        final String image =
-            restaurant['imageUrl']?.toString() ??
-            'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80';
-        final double rating =
-            double.tryParse(restaurant['rating']?.toString() ?? '4.0') ?? 4.0;
-        final double parsedDistance =
-            double.tryParse(restaurant['distance']?.toString() ?? '2.5') ?? 2.5;
-        final bool isOpen = restaurant['isOpen'] ?? true;
-        final List<dynamic> tags = restaurant['tags'] ?? [];
+        final displayedRestaurants = _searchQuery.isEmpty
+            ? allRestaurants
+            : allRestaurants.where((restaurant) {
+                return restaurant.name.toLowerCase().contains(_searchQuery.toLowerCase());
+              }).toList();
 
-        return GestureDetector(
-          onTap: () {
-            context.push('/restaurant-detail', extra: restaurant);
-          },
+        if (displayedRestaurants.isEmpty) {
+          return Center(
+            child: Text(
+              "لا توجد مطاعم مطابقة لبحثك 🍽️",
+              style: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54, fontSize: 16),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: displayedRestaurants.length,
+          itemBuilder: (context, index) {
+            final restaurant = displayedRestaurants[index];
+            final String name = restaurant.name.isNotEmpty ? restaurant.name : 'اسم المطعم';
+            final String desc = "مطعم $name";
+            final String image = restaurant.imageUrl ??
+                'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80';
+            final double rating = restaurant.rating;
+            final double parsedDistance =
+                double.tryParse(restaurant.distance.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 2.5;
+            final bool isOpen = restaurant.isOpen;
+            final List<String> tags = restaurant.tags;
+
+            // Simple map for fav and extra param
+            final Map<String, dynamic> restaurantMap = {
+              "id": restaurant.id,
+              "name": restaurant.name,
+              "address": restaurant.address,
+              "distance": restaurant.distance,
+              "rating": restaurant.rating,
+              "isOpen": restaurant.isOpen,
+              "imageUrl": restaurant.imageUrl,
+              "tags": restaurant.tags,
+              "menus": restaurant.menus.map((menu) => {
+                "id": menu.id,
+                "name": menu.name,
+                "meals": menu.meals.map((meal) => {
+                  "id": meal.id,
+                  "name": meal.name,
+                  "description": meal.description,
+                  "price": meal.price,
+                  "imageUrl": meal.imageUrl,
+                }).toList(),
+              }).toList(),
+              "meals": restaurant.meals.map((meal) => {
+                "id": meal.id,
+                "name": meal.name,
+                "description": meal.description,
+                "price": meal.price,
+                "imageUrl": meal.imageUrl,
+              }).toList(),
+            };
+
+            return GestureDetector(
+              onTap: () {
+                context.push('/restaurant-detail', extra: restaurantMap);
+              },
           child: Container(
             margin: const EdgeInsets.only(bottom: 15),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1A34).withOpacity(0.5),
+              color: isDark ? const Color(0xFF1E1A34).withOpacity(0.5) : Colors.white.withOpacity(0.7),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +305,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                     Text(
                       "${parsedDistance.toStringAsFixed(1)} كيلو",
                       style: GoogleFonts.cairo(
-                        color: Colors.white70,
+                        color: isDark ? Colors.white70 : Colors.black87,
                         fontSize: 11,
                       ),
                     ),
@@ -289,7 +334,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       Text(
                         name,
                         style: GoogleFonts.cairo(
-                          color: Colors.white,
+                          color: isDark ? Colors.white : Colors.black87,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -297,7 +342,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                       Text(
                         desc,
                         style: GoogleFonts.cairo(
-                          color: Colors.white54,
+                          color: isDark ? Colors.white54 : Colors.black54,
                           fontSize: 11,
                         ),
                         maxLines: 1,
@@ -315,16 +360,16 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.05),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: Colors.white.withOpacity(0.1),
+                                    color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
                                   ),
                                 ),
                                 child: Text(
                                   tag.toString(),
                                   style: GoogleFonts.cairo(
-                                    color: Colors.white70,
+                                    color: isDark ? Colors.white70 : Colors.black87,
                                     fontSize: 9,
                                   ),
                                 ),
@@ -365,32 +410,44 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                         ),
                       ),
                     const SizedBox(height: 15),
-                    Consumer<FavoritesProvider>(
-                      builder: (context, fav, _) {
-                        final rId =
-                            restaurant['id']?.toString() ??
-                            restaurant['name']?.toString() ??
-                            '';
-                        final isFav = fav.isRestaurantFav(rId);
-                        return GestureDetector(
-                          onTap: () => fav.toggleRestaurant(
-                            Map<String, dynamic>.from(restaurant),
-                          ),
-                          child: Icon(
-                            isFav ? Icons.favorite : Icons.favorite_border,
-                            color: const Color(0xFFFF5555),
-                            size: 22,
-                          ),
-                        );
-                      },
+                        Consumer<FavoritesProvider>(
+                          builder: (context, fav, _) {
+                            final rId = restaurant.id.isNotEmpty ? restaurant.id : restaurant.name;
+                            final isFav = fav.isRestaurantFav(rId);
+                            return GestureDetector(
+                              onTap: () => fav.toggleRestaurant(restaurantMap),
+                              child: Icon(
+                                isFav ? Icons.favorite : Icons.favorite_border,
+                                color: const Color(0xFFFF5555),
+                                size: 22,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 40),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, StackTrace) => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Text(
+            "حدث خطأ أثناء تحميل المطاعم",
+            style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
+          ),
+        ),
+      ),
     );
   }
 
@@ -398,6 +455,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
   // 4. شريط التنقل السفلي
   // ===========================================================================
   Widget _buildFloatingNavBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
       child: Container(
@@ -406,7 +464,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
           borderRadius: BorderRadius.circular(35),
           boxShadow: [
             BoxShadow(
-              color: const Color.fromARGB(255, 54, 37, 124).withOpacity(0.8),
+              color: isDark ? const Color.fromARGB(255, 54, 37, 124).withOpacity(0.8) : Colors.black.withOpacity(0.1),
               blurRadius: 25,
               offset: const Offset(0, 10),
               spreadRadius: -5,
@@ -420,10 +478,10 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1A34).withOpacity(0.1),
+                color: isDark ? const Color(0xFF1E1A34).withOpacity(0.85) : Colors.white.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(35),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.7),
+                  color: isDark ? Colors.white.withOpacity(0.7) : Colors.black.withOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -478,6 +536,7 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
     required String label,
     required int index,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _selectedIndex == index;
 
     return GestureDetector(
@@ -521,14 +580,14 @@ class _RestaurantsScreenState extends State<RestaurantsScreen> {
                 child: Icon(selectedIcon, color: Colors.white, size: 26),
               )
             else
-              Icon(unselectedIcon, color: Colors.white54, size: 26),
+              Icon(unselectedIcon, color: isDark ? Colors.white54 : Colors.black54, size: 26),
 
             const SizedBox(height: 4),
 
             Text(
               label,
               style: GoogleFonts.cairo(
-                color: isSelected ? const Color(0xFF0F55E8) : Colors.white54,
+                color: isSelected ? const Color(0xFF0F55E8) : (isDark ? Colors.white54 : Colors.black54),
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
