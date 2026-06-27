@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/custom_background.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 
 class ChatScreen extends StatefulWidget {
   final String driverName;
@@ -17,7 +18,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [
     {
-      'text': 'أهلاً بك، أنا استلمت طلبك وفي طريقي إليك 🛵',
+      'text': 'driver_hello_msg'.tr(),
       'isMe': false,
       'time': '10:00 AM',
     },
@@ -184,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _messageController,
               style: GoogleFonts.cairo(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'اكتب رسالة...',
+                hintText: 'write_message'.tr(),
                 hintStyle: GoogleFonts.cairo(color: Colors.white30),
                 filled: true,
                 fillColor: const Color(0xFF1E1A34).withOpacity(0.8),

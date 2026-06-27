@@ -367,6 +367,50 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     Map<String, dynamic> meal,
     FavoritesProvider fav,
   ) {
+    final double mealPrice = meal['price'] != null
+        ? double.tryParse(meal['price'].toString()) ?? 0.0
+        : 0.0;
+
+    final double? priceAfterDiscount = meal['price_after_discount'] != null
+        ? double.tryParse(meal['price_after_discount'].toString())
+        : null;
+
+    final String? discountType = meal['discount_type']?.toString();
+    final double? discountValue = meal['discount_value'] != null
+        ? double.tryParse(meal['discount_value'].toString())
+        : null;
+
+    DateTime? parseDateTime(dynamic value) {
+      if (value == null) return null;
+      try {
+        return DateTime.parse(value.toString());
+      } catch (_) {
+        return null;
+      }
+    }
+    final DateTime? discountStart = parseDateTime(meal['discount_start']);
+    final DateTime? discountEnd = parseDateTime(meal['discount_end']);
+
+    final now = DateTime.now();
+    final bool isPromoActive = priceAfterDiscount != null &&
+        priceAfterDiscount > 0 &&
+        priceAfterDiscount < mealPrice &&
+        (discountStart == null || discountStart.isBefore(now)) &&
+        (discountEnd == null || discountEnd.isAfter(now));
+
+    final double price = isPromoActive ? priceAfterDiscount : mealPrice;
+    final double? oldPrice = isPromoActive ? mealPrice : null;
+
+    int? discountPercent;
+    if (isPromoActive) {
+      if (discountType == 'percentage' && discountValue != null) {
+        discountPercent = discountValue.round();
+      } else {
+        final double diff = mealPrice - priceAfterDiscount;
+        discountPercent = ((diff / mealPrice) * 100).round();
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       height: 110,
@@ -426,6 +470,36 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                   ),
                 ),
               ),
+              if (isPromoActive && discountPercent != null && discountPercent > 0)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF5555),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF5555).withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      "-$discountPercent%",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
 
@@ -469,10 +543,19 @@ class _FavoritesScreenState extends State<FavoritesScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (oldPrice != null)
+                  Text(
+                    "${oldPrice.toStringAsFixed(0)} ر.ي",
+                    style: GoogleFonts.cairo(
+                      color: Colors.white38,
+                      fontSize: 10,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
                 Text(
-                  "${meal['price']} ر.ي",
+                  "${price.toStringAsFixed(0)} ر.ي",
                   style: GoogleFonts.cairo(
-                    color: Colors.white,
+                    color: isPromoActive ? const Color(0xFFFF5555) : Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),

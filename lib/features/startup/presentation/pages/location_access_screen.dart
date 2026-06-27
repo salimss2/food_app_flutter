@@ -1,7 +1,11 @@
+import 'package:customer_app/core/api/dio_client.dart';
+import 'package:customer_app/core/api/endpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart'; // استيراد حزمة الموقع
 import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
+import 'package:shared_preferences/shared_preferences.dart'; // <-- استيراد الذاكرة لجلب التوكن
+import 'package:dio/dio.dart'; // <-- استيراد Dio من أجل Options
 
 import '../../../../core/widgets/custom_background.dart';
 
@@ -15,7 +19,7 @@ class LocationAccessScreen extends StatefulWidget {
 class _LocationAccessScreenState extends State<LocationAccessScreen> {
   bool _isLoading = false;
 
-  // --- دالة طلب صلاحيات الموقع ---
+  // --- دالة طلب صلاحيات الموقع وحفظه ---
   Future<void> _requestLocationPermission() async {
     setState(() {
       _isLoading = true;
@@ -25,7 +29,7 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
     LocationPermission permission;
 
     try {
-      // 1. التحقق مما إذا كانت خدمة الـ GPS مفعلة في الهاتف
+      // 1. التحقق مما إذا كانت خدمة الـ GPS مفعلة
       serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         _showSnackBar('يرجى تفعيل خدمة الموقع (GPS) في هاتفك');
@@ -33,10 +37,10 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
         return;
       }
 
-      // 2. التحقق من حالة الصلاحية الحالية
+      // 2. التحقق من حالة الصلاحية
       permission = await Geolocator.checkPermission();
-      
-      // 3. إذا كانت الصلاحية مرفوضة، نقوم بطلبها
+
+      // 3. طلب الصلاحية إذا كانت مرفوضة
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
@@ -45,21 +49,48 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
           return;
         }
       }
-      
-      // 4. إذا تم رفض الصلاحية بشكل دائم (لا يمكن طلبها مرة أخرى من التطبيق)
+
       if (permission == LocationPermission.deniedForever) {
-        _showSnackBar('تم رفض الصلاحية نهائياً. يرجى تفعيلها من إعدادات الهاتف.');
+        _showSnackBar(
+          'تم رفض الصلاحية نهائياً. يرجى تفعيلها من إعدادات الهاتف.',
+        );
         setState(() => _isLoading = false);
         return;
-      } 
+      }
 
-      // 5. في حال نجاح كل ما سبق (تم منح الصلاحية)، ننتقل لصفحة الخريطة
-      if (mounted) {
-        // الانتقال باستخدام go_router
-        context.go('/map-picker');
+      // 4. جلب موقع المستخدم الحالي (خط الطول والعرض)
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // 5. جلب التوكن من الذاكرة لتعريف المستخدم في لارافل
+      final prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString(
+        'auth_token',
+      ); // تأكد أن المفتاح يطابق مفتاح تسجيل الدخول لديك
+
+      // 6. إرسال الإحداثيات إلى سيرفر لارافل لحفظها
+      final dioClient = DioClient();
+      final String fullUrl = Endpoints.baseUrl + Endpoints.updateLocation;
+
+      final response = await dioClient.dio.post(
+        fullUrl,
+        data: {'latitude': position.latitude, 'longitude': position.longitude},
+        // 🌟 إرسال التوكن لكي لا يظهر خطأ 500 (profile on null)
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      // 7. الانتقال للصفحة التالية بعد نجاح الحفظ
+      if (response.statusCode == 200) {
+        if (mounted) {
+          _showSnackBar('تم تحديد موقعك وحفظه بنجاح!', color: Colors.green);
+          // هنا يمكنك توجيهه لصفحة الخريطة لتأكيد الموقع الدقيق أو للصفحة الرئيسية مباشرة
+          context.go('/map-picker');
+        }
       }
     } catch (e) {
-      _showSnackBar('حدث خطأ غير متوقع: $e');
+      _showSnackBar('حدث خطأ أثناء جلب أو حفظ الموقع');
+      print("Location Error: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -92,7 +123,7 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Spacer(flex: 2),
-                
+
                 // --- صورة الخريطة الدائرية ---
                 Container(
                   width: 220,
@@ -103,7 +134,7 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
                   ),
                   child: Center(
                     child: Image.asset(
-                      'assets/images/map_illustration.png', 
+                      'assets/images/map_illustration.png',
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) => Icon(
                         Icons.map_rounded,
@@ -113,15 +144,16 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
                     ),
                   ),
                 ),
-                
+
                 const Spacer(flex: 1),
-                
+
                 // --- زر الوصول للموقع ---
                 InkWell(
                   onTap: _isLoading ? null : _requestLocationPermission,
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    height: 60, // تثبيت الارتفاع لمنع اهتزاز الزر عند ظهور دائرة التحميل
+                    height:
+                        60, // تثبيت الارتفاع لمنع اهتزاز الزر عند ظهور دائرة التحميل
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -152,7 +184,10 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
                           const SizedBox(
                             width: 24,
                             height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
                           )
                         else ...[
                           Text(
@@ -169,7 +204,10 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 1.5),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
                             ),
                             child: const Icon(
                               Icons.location_on,
@@ -182,9 +220,9 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 35),
-                
+
                 // --- النص التوضيحي بالأسفل ---
                 Text(
                   "DFOOD WILL ACCESS YOUR LOCATION\nONLY WHILE USING THE APP",
@@ -197,7 +235,7 @@ class _LocationAccessScreenState extends State<LocationAccessScreen> {
                     letterSpacing: 0.5,
                   ),
                 ),
-                
+
                 const Spacer(flex: 1),
               ],
             ),

@@ -5,8 +5,19 @@ class UserModel {
   final String name;
   final String email;
   final String password;
+  final String? phone;
+  final String? address;
+  final String? location;
 
-  UserModel({required this.name, required this.email, required this.password, this.id});
+  UserModel({
+    required this.name,
+    required this.email,
+    required this.password,
+    this.id,
+    this.phone,
+    this.address,
+    this.location,
+  });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -14,6 +25,9 @@ class UserModel {
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       password: json['password'] ?? '',
+      phone: json['phone'],
+      address: json['address'],
+      location: json['location'],
     );
   }
 
@@ -23,14 +37,21 @@ class UserModel {
       'name': name,
       'email': email,
       'password': password,
+      'phone': phone,
+      'address': address,
+      'location': location,
     };
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
+      id: map['id'],
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       password: map['password'] ?? '',
+      phone: map['phone'],
+      address: map['address'],
+      location: map['location'],
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -82,19 +83,9 @@ class _HomeDrawerState extends State<HomeDrawer>
                       topLeft: Radius.circular(30),
                       bottomLeft: Radius.circular(30),
                     ),
-                    border: Border(
-                      left: BorderSide(
-                        color: Colors.white.withOpacity(0.15),
-                        width: 1,
-                      ),
-                      top: BorderSide(
-                        color: Colors.white.withOpacity(0.05),
-                        width: 1,
-                      ),
-                      bottom: BorderSide(
-                        color: Colors.white.withOpacity(0.05),
-                        width: 1,
-                      ),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
                     ),
                   ),
                 ),
@@ -194,7 +185,7 @@ class _HomeDrawerState extends State<HomeDrawer>
 
                           BlocBuilder<AuthBloc, AuthState>(
                             builder: (context, state) {
-                              String userName = "زائر";
+                              String userName = "guest".tr();
                               if (state is Authenticated) {
                                 userName = state.user.name;
                               }
@@ -216,7 +207,7 @@ class _HomeDrawerState extends State<HomeDrawer>
 
                     // القائمة
                     Text(
-                      "القائمة",
+                      "menu_title".tr(),
                       style: GoogleFonts.cairo(
                         color: Colors.white54,
                         fontSize: 12,
@@ -228,7 +219,7 @@ class _HomeDrawerState extends State<HomeDrawer>
                     // --- التعديل هنا: تم إزالة isSelected: true ليصبح زراً عادياً ---
                     _buildDrawerItem(
                       Icons.person_outline,
-                      "الملف الشخصي",
+                      "profile".tr(),
                       onTap: () {
                         context.pop();
                         context.push('/profile');
@@ -236,14 +227,14 @@ class _HomeDrawerState extends State<HomeDrawer>
                     ),
                     _buildDrawerItem(
                       Icons.list_alt,
-                      "طلباتي",
+                      "my_orders".tr(),
                       onTap: () {
                         context.push('/orders');
                       },
                     ),
                     _buildDrawerItem(
                       Icons.schedule,
-                      "الطلبات المجدولة",
+                      "scheduled_orders".tr(),
                       onTap: () {
                         context.pop();
                         context.push('/scheduled-orders');
@@ -251,12 +242,12 @@ class _HomeDrawerState extends State<HomeDrawer>
                     ),
                     _buildDrawerItem(
                       Icons.account_balance_wallet_outlined,
-                      "المحفظة",
+                      "wallet".tr(),
                       onTap: () {},
                     ),
                     _buildDrawerItem(
                       Icons.notifications_outlined,
-                      "الإشعارات",
+                      "notifications".tr(),
                       trailing: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
@@ -279,7 +270,7 @@ class _HomeDrawerState extends State<HomeDrawer>
                     ),
                     _buildDrawerItem(
                       Icons.favorite_border,
-                      "المفضلة",
+                      "favorites".tr(),
                       onTap: () {
                         context.pop();
                         context.push('/favorites');
@@ -287,15 +278,15 @@ class _HomeDrawerState extends State<HomeDrawer>
                     ),
                     _buildDrawerItem(
                       Icons.card_giftcard,
-                      "دعوة صديق",
+                      "invite_friend".tr(),
                       onTap: () {},
                     ),
-                    _buildDrawerItem(Icons.search, "بحث", onTap: () {}),
+                    _buildDrawerItem(Icons.search, "search".tr(), onTap: () {}),
 
                     const SizedBox(height: 30),
 
                     Text(
-                      "الإعدادات والدعم",
+                      "settings_support_title".tr(),
                       style: GoogleFonts.cairo(
                         color: Colors.white54,
                         fontSize: 12,
@@ -306,7 +297,7 @@ class _HomeDrawerState extends State<HomeDrawer>
 
                     _buildDrawerItem(
                       Icons.settings_outlined,
-                      "الإعدادات والخصوصية",
+                      "settings_privacy".tr(),
                       onTap: () {
                         context.pop();
                         context.push('/settings');
@@ -314,7 +305,7 @@ class _HomeDrawerState extends State<HomeDrawer>
                     ),
                     _buildDrawerItem(
                       Icons.help_outline,
-                      "مركز المساعدة",
+                      "help_center".tr(),
                       onTap: () {},
                     ),
 

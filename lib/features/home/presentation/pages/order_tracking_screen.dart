@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +9,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../core/api/dio_client.dart';
+import '../../../../core/api/endpoints.dart';
 import '../../../../core/widgets/custom_background.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
@@ -19,41 +23,226 @@ class OrderTrackingScreen extends StatefulWidget {
 }
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  // ── Route & address state ────────────────────────────────────────────────
   List<LatLng> routePoints = [];
-  String storeAddress = "جاري جلب العنوان...";
-  String customerAddress = "جاري جلب العنوان...";
+  String storeAddress = "fetching_address".tr();
+  String customerAddress = "fetching_address".tr();
   bool isLoadingRoute = true;
-  final String orsKey =
-      'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjcwMjUxZDVkMDkzOTRhYTNiOGNkNWE3NjI5MTczZjlhIiwiaCI6Im11cm11cjY0In0=';
+
+  // ── Live driver state ────────────────────────────────────────────────────
+  LatLng? liveDriverPosition;
+  Map<String, dynamic>? liveDriverInfo;
+  String? orderStatus; // Added to store order status
+
+  // ── Polling ──────────────────────────────────────────────────────────────
+  Timer? _pollingTimer;
+
+  // ── Keys ─────────────────────────────────────────────────────────────────
   final String locationIqKey = 'pk.93ec8bc5ca24f78b868563c6caec4660';
+
+  // ── Dynamic coordinates extracted from orderData ─────────────────────────
+  // ── Dynamic coordinates extracted from orderData ─────────────────────────
+  double _restaurantLat = 14.5450;
+  double _restaurantLng = 49.1200;
+  double _customerLat = 14.5380;
+  double _customerLng = 49.1280;
 
   @override
   void initState() {
     super.initState();
-    fetchRealRoute();
-    fetchAddresses();
+
+    // Safely extract coordinates with sane fallbacks initially
+    _restaurantLat = _toDouble(widget.orderData['restaurant_lat']) ?? 14.5450;
+    _restaurantLng = _toDouble(widget.orderData['restaurant_lng']) ?? 49.1200;
+    _customerLat = _toDouble(widget.orderData['customer_lat']) ?? 14.5380;
+    _customerLng = _toDouble(widget.orderData['customer_lng']) ?? 49.1280;
+    orderStatus = widget.orderData['status']?.toString();
+
+    // Seed liveDriverInfo from order data if a driver is already assigned
+    final driver = widget.orderData['driver'];
+    if (driver is Map<String, dynamic>) {
+      liveDriverInfo = driver;
+      final dLat = _toDouble(driver['lat'] ?? driver['driver_lat'] ?? driver['latitude']);
+      final dLng = _toDouble(driver['lng'] ?? driver['driver_lng'] ?? driver['longitude']);
+      if (dLat != null && dLng != null) {
+        liveDriverPosition = LatLng(dLat, dLng);
+      }
+    }
+
+    // Explicitly load freshest coordinates first before route path and address lookup
+    _loadInitialTrackingData();
   }
 
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    try {
+      return double.parse(value.toString());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Initial Live Tracking Fetch ───────────────────────────────────────────
+  Future<void> _loadInitialTrackingData() async {
+    final orderId = widget.orderData['id'];
+    if (orderId == null) {
+      fetchRealRoute();
+      fetchAddresses();
+      _startPolling();
+      return;
+    }
+
+    try {
+      final response = await DioClient().dio.get('${Endpoints.baseUrl}/v1/orders/$orderId/track');
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final orderDataMap = (data['data'] is Map<String, dynamic>)
+            ? (data['data'] as Map<String, dynamic>)
+            : data;
+
+        final status = orderDataMap['status']?.toString();
+        final driverObj = orderDataMap['driver'] as Map<String, dynamic>?;
+
+        final rLat = _toDouble(orderDataMap['restaurant_lat'] ?? orderDataMap['restaurant']?['latitude'] ?? orderDataMap['restaurant']?['restaurant_lat']);
+        final rLng = _toDouble(orderDataMap['restaurant_lng'] ?? orderDataMap['restaurant']?['longitude'] ?? orderDataMap['restaurant']?['restaurant_lng']);
+        final cLat = _toDouble(orderDataMap['customer_lat'] ?? orderDataMap['customer']?['latitude'] ?? orderDataMap['customer']?['customer_lat']);
+        final cLng = _toDouble(orderDataMap['customer_lng'] ?? orderDataMap['customer']?['longitude'] ?? orderDataMap['customer']?['customer_lng']);
+
+        double? dLat;
+        double? dLng;
+        if (driverObj != null) {
+          dLat = _toDouble(driverObj['lat'] ?? driverObj['driver_lat'] ?? driverObj['latitude']);
+          dLng = _toDouble(driverObj['lng'] ?? driverObj['driver_lng'] ?? driverObj['longitude']);
+        } else {
+          dLat = _toDouble(orderDataMap['driver_lat'] ?? orderDataMap['latitude']);
+          dLng = _toDouble(orderDataMap['driver_lng'] ?? orderDataMap['longitude']);
+        }
+
+        if (!mounted) return;
+        setState(() {
+          if (status != null) {
+            orderStatus = status;
+          }
+          if (rLat != null) _restaurantLat = rLat;
+          if (rLng != null) _restaurantLng = rLng;
+          if (cLat != null) _customerLat = cLat;
+          if (cLng != null) _customerLng = cLng;
+
+          if (dLat != null && dLng != null) {
+            liveDriverPosition = LatLng(dLat, dLng);
+          }
+          if (driverObj != null) {
+            liveDriverInfo = driverObj;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load initial tracking coordinates: $e');
+    } finally {
+      fetchRealRoute();
+      fetchAddresses();
+      _startPolling();
+    }
+  }
+
+  // ── Polling ───────────────────────────────────────────────────────────────
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _fetchLiveDriverData(),
+    );
+  }
+
+  Future<void> _fetchLiveDriverData() async {
+    final orderId = widget.orderData['id'];
+    if (orderId == null) return;
+
+    try {
+      final response = await DioClient().dio.get('${Endpoints.baseUrl}/v1/orders/$orderId/track');
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>;
+        final orderDataMap = (data['data'] is Map<String, dynamic>)
+            ? (data['data'] as Map<String, dynamic>)
+            : data;
+
+        final status = orderDataMap['status']?.toString();
+        final driverObj = orderDataMap['driver'] as Map<String, dynamic>?;
+
+        final rLat = _toDouble(orderDataMap['restaurant_lat'] ?? orderDataMap['restaurant']?['latitude'] ?? orderDataMap['restaurant']?['restaurant_lat']);
+        final rLng = _toDouble(orderDataMap['restaurant_lng'] ?? orderDataMap['restaurant']?['longitude'] ?? orderDataMap['restaurant']?['restaurant_lng']);
+        final cLat = _toDouble(orderDataMap['customer_lat'] ?? orderDataMap['customer']?['latitude'] ?? orderDataMap['customer']?['customer_lat']);
+        final cLng = _toDouble(orderDataMap['customer_lng'] ?? orderDataMap['customer']?['longitude'] ?? orderDataMap['customer']?['customer_lng']);
+
+        double? dLat;
+        double? dLng;
+        if (driverObj != null) {
+          dLat = _toDouble(driverObj['lat'] ?? driverObj['driver_lat'] ?? driverObj['latitude']);
+          dLng = _toDouble(driverObj['lng'] ?? driverObj['driver_lng'] ?? driverObj['longitude']);
+        } else {
+          dLat = _toDouble(orderDataMap['driver_lat'] ?? orderDataMap['latitude']);
+          dLng = _toDouble(orderDataMap['driver_lng'] ?? orderDataMap['longitude']);
+        }
+
+        if (!mounted) return;
+        setState(() {
+          if (status != null) {
+            orderStatus = status;
+          }
+          if (rLat != null) _restaurantLat = rLat;
+          if (rLng != null) _restaurantLng = rLng;
+          if (cLat != null) _customerLat = cLat;
+          if (cLng != null) _customerLng = cLng;
+
+          if (dLat != null && dLng != null) {
+            liveDriverPosition = LatLng(dLat, dLng);
+          }
+          if (driverObj != null) {
+            liveDriverInfo = driverObj;
+          }
+        });
+      }
+    } catch (_) {
+      // Silently ignore — UI keeps showing the last known state
+    }
+  }
+
+  // ── OSRM Route ────────────────────────────────────────────────────────────
   Future<void> fetchRealRoute() async {
     try {
+      // OSRM public API — free, no key required
+      // Format: /route/v1/{profile}/{lng,lat};{lng,lat}
       final url = Uri.parse(
-        'https://api.openrouteservice.org/v2/directions/driving-car?api_key=$orsKey&start=49.1200,14.5450&end=49.1280,14.5380',
+        'https://router.project-osrm.org/route/v1/driving/'
+        '$_restaurantLng,$_restaurantLat;$_customerLng,$_customerLat'
+        '?overview=full&geometries=geojson',
       );
+
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final coordinates =
-            data['features'][0]['geometry']['coordinates'] as List;
+            data['routes'][0]['geometry']['coordinates'] as List;
+        if (!mounted) return;
         setState(() {
           routePoints = coordinates
-              .map((coord) => LatLng(coord[1], coord[0]))
+              .map((c) => LatLng(c[1] as double, c[0] as double))
               .toList();
           isLoadingRoute = false;
         });
       } else {
+        if (!mounted) return;
         setState(() => isLoadingRoute = false);
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoadingRoute = false);
     }
   }
@@ -61,10 +250,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Future<void> fetchAddresses() async {
     try {
       final storeUrl = Uri.parse(
-        'https://us1.locationiq.com/v1/reverse.php?key=$locationIqKey&lat=14.5450&lon=49.1200&format=json&accept-language=ar',
+        'https://us1.locationiq.com/v1/reverse.php?key=$locationIqKey'
+        '&lat=$_restaurantLat&lon=$_restaurantLng&format=json&accept-language=ar',
       );
       final customerUrl = Uri.parse(
-        'https://us1.locationiq.com/v1/reverse.php?key=$locationIqKey&lat=14.5380&lon=49.1280&format=json&accept-language=ar',
+        'https://us1.locationiq.com/v1/reverse.php?key=$locationIqKey'
+        '&lat=$_customerLat&lon=$_customerLng&format=json&accept-language=ar',
       );
 
       final storeResponse = await http.get(storeUrl);
@@ -72,21 +263,27 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
       if (storeResponse.statusCode == 200) {
         final storeData = json.decode(storeResponse.body);
-        setState(() {
-          storeAddress = storeData['display_name'] ?? storeAddress;
-        });
+        if (mounted) {
+          setState(
+            () => storeAddress = storeData['display_name'] ?? storeAddress,
+          );
+        }
       }
       if (customerResponse.statusCode == 200) {
         final customerData = json.decode(customerResponse.body);
-        setState(() {
-          customerAddress = customerData['display_name'] ?? customerAddress;
-        });
+        if (mounted) {
+          setState(
+            () => customerAddress =
+                customerData['display_name'] ?? customerAddress,
+          );
+        }
       }
-    } catch (e) {
+    } catch (_) {
       // Handle error implicitly
     }
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,7 +339,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             size: 18,
           ),
           Text(
-            "تابع الطلب",
+            "track_order".tr(),
             style: GoogleFonts.cairo(
               color: Colors.white,
               fontSize: 18,
@@ -187,18 +384,39 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   // Map Placeholder
   // ===========================================================================
   Widget _buildMapPlaceholder() {
+    // Initial center: live driver → restaurant fallback
+    final mapCenter =
+        liveDriverPosition ?? LatLng(_restaurantLat, _restaurantLng);
+
+    // Driver Marker point
+    final LatLng motorcyclePoint =
+        liveDriverPosition ?? LatLng(_restaurantLat, _restaurantLng);
+
     return FlutterMap(
-      options: const MapOptions(
-        initialCenter: LatLng(14.5425, 49.1242),
-        initialZoom: 14.5,
-      ),
+      options: MapOptions(initialCenter: mapCenter, initialZoom: 14.5),
       children: [
         ColorFiltered(
           colorFilter: const ColorFilter.matrix([
-            -1,  0,  0, 0, 255,
-             0, -1,  0, 0, 255,
-             0,  0, -1, 0, 255,
-             0,  0,  0, 1,   0,
+            -1,
+            0,
+            0,
+            0,
+            255,
+            0,
+            -1,
+            0,
+            0,
+            255,
+            0,
+            0,
+            -1,
+            0,
+            255,
+            0,
+            0,
+            0,
+            1,
+            0,
           ]),
           child: TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -219,33 +437,29 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         MarkerLayer(
           markers: [
             Marker(
-              point: routePoints.isNotEmpty
-                  ? routePoints.first
-                  : const LatLng(14.5450, 49.1200),
+              point: LatLng(_restaurantLat, _restaurantLng),
               width: 40,
               height: 40,
               child: _buildMapPin(Icons.storefront, const Color(0xFF0F55E8)),
             ),
             Marker(
-              point: routePoints.isNotEmpty
-                  ? routePoints.last
-                  : const LatLng(14.5380, 49.1280),
+              point: LatLng(_customerLat, _customerLng),
               width: 40,
               height: 40,
               child: _buildMapPin(Icons.home_filled, const Color(0xFFFF416C)),
             ),
-            Marker(
-              point: routePoints.isNotEmpty
-                  ? routePoints[routePoints.length ~/ 2]
-                  : const LatLng(14.5410, 49.1240),
-              width: 50,
-              height: 50,
-              child: _buildMapPin(
-                Icons.motorcycle,
-                const Color(0xFFE58B29),
-                size: 50,
+            // Only show driver marker if we have driver location, or show at restaurant if fallback needed
+            if (liveDriverPosition != null)
+              Marker(
+                point: motorcyclePoint,
+                width: 50,
+                height: 50,
+                child: _buildMapPin(
+                  Icons.motorcycle,
+                  const Color(0xFFE58B29),
+                  size: 50,
+                ),
               ),
-            ),
           ],
         ),
       ],
@@ -272,10 +486,39 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
+  int _getTimelineIndex(String? status) {
+    final s = (status ?? 'pending').toLowerCase();
+    switch (s) {
+      case 'pending':
+        return 0;
+      case 'confirmed':
+      case 'accepted':
+        return 1;
+      case 'preparing':
+      case 'processing':
+        return 2;
+      case 'out_for_delivery':
+      case 'driver_assigned':
+      case 'on_the_way':
+        return 3;
+      case 'delivered':
+      case 'completed':
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
   // ===========================================================================
   // Horizontal Timeline
   // ===========================================================================
   Widget _buildHorizontalTimeline() {
+    final currentStatus = orderStatus ??
+                          liveDriverInfo?['order_status'] ?? 
+                          liveDriverInfo?['status'] ?? 
+                          widget.orderData['status'];
+    final step = _getTimelineIndex(currentStatus?.toString());
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
@@ -319,11 +562,35 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTimelineItem("تم تقديم\nالطلب", isCompleted: true),
-              _buildTimelineItem("تم تأكيد\nالطلب", isCompleted: true),
-              _buildTimelineItem("تحضير\nالسلعة", isCompleted: true),
-              _buildTimelineItem("التسليم في\nالطريق", isActive: true),
-              _buildTimelineItem("تم\nالتوصيل", isPending: true),
+              _buildTimelineItem(
+                "order_placed".tr(),
+                isCompleted: step >= 1,
+                isActive: step == 0,
+              ),
+              _buildTimelineItem(
+                "order_confirmed".tr(),
+                isCompleted: step >= 2,
+                isActive: step == 1,
+                isPending: step < 1,
+              ),
+              _buildTimelineItem(
+                "preparing_item".tr(),
+                isCompleted: step >= 3,
+                isActive: step == 2,
+                isPending: step < 2,
+              ),
+              _buildTimelineItem(
+                "delivery_on_the_way".tr(),
+                isCompleted: step >= 4,
+                isActive: step == 3,
+                isPending: step < 3,
+              ),
+              _buildTimelineItem(
+                "delivered".tr(),
+                isCompleted: step == 4,
+                isActive: step == 4,
+                isPending: step < 4,
+              ),
             ],
           ),
         ],
@@ -387,6 +654,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   // Bottom Panel (Driver & Route Info)
   // ===========================================================================
   Widget _buildBottomPanel() {
+    // Resolve driver info: prefer live data explicitly
+    final driverName = liveDriverInfo?['name']?.toString() ?? 'جارِ البحث عن مندوب';
+    final driverPhone = liveDriverInfo?['phone']?.toString() ?? '';
+    final driverRating = _toDouble(liveDriverInfo?['rating']) ?? 0.0;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF140C36),
@@ -409,7 +681,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             children: [
               // Route Info Header
               Text(
-                "طريق الرحلة",
+                "trip_route".tr(),
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontSize: 16,
@@ -454,7 +726,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "من المتجر",
+                            "from_store".tr(),
                             style: GoogleFonts.cairo(
                               color: Colors.white54,
                               fontSize: 12,
@@ -480,7 +752,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                               ),
                               const SizedBox(width: 5),
                               Text(
-                                "9.82 كم",
+                                "9.82 " + "km".tr(),
                                 style: GoogleFonts.poppins(
                                   color: Colors.orangeAccent,
                                   fontSize: 13,
@@ -491,7 +763,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            "إلى العميل",
+                            "to_customer".tr(),
                             style: GoogleFonts.cairo(
                               color: Colors.white54,
                               fontSize: 12,
@@ -518,7 +790,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
               // Driver Info
               Text(
-                "رجل التسليم",
+                "delivery_man".tr(),
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontSize: 16,
@@ -546,7 +818,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "فهمي لبيب",
+                            driverName,
                             style: GoogleFonts.cairo(
                               color: Colors.white,
                               fontSize: 15,
@@ -555,34 +827,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           ),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.star,
-                                color: Colors.orange,
-                                size: 14,
-                              ),
-                              const Icon(
-                                Icons.star,
-                                color: Colors.orange,
-                                size: 14,
-                              ),
-                              const Icon(
-                                Icons.star,
-                                color: Colors.orange,
-                                size: 14,
-                              ),
-                              const Icon(
-                                Icons.star,
-                                color: Colors.orange,
-                                size: 14,
-                              ),
-                              const Icon(
-                                Icons.star_half,
-                                color: Colors.orange,
-                                size: 14,
-                              ),
+                              // Build rating stars dynamically
+                              ..._buildRatingStars(driverRating),
                               const SizedBox(width: 5),
                               Text(
-                                "4.9",
+                                driverRating > 0
+                                    ? driverRating.toStringAsFixed(1)
+                                    : '—',
                                 style: GoogleFonts.poppins(
                                   color: Colors.white54,
                                   fontSize: 12,
@@ -596,8 +847,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     Row(
                       children: [
                         GestureDetector(
-                          onTap: () =>
-                              context.push('/chat', extra: 'فهمي لبيب'),
+                          onTap: () => context.push('/chat', extra: driverName),
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -615,9 +865,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFD32F2F,
-                            ).withOpacity(0.15), // Red accent
+                            color: const Color(0xFFD32F2F).withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -638,7 +886,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    context.pushReplacement('/rate-order');
+                    context.pushReplacement('/rate-order', extra: widget.orderData);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFD32F2F),
@@ -650,7 +898,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     shadowColor: const Color(0xFFD32F2F).withOpacity(0.5),
                   ),
                   child: Text(
-                    "تم استلام الطلب",
+                    "order_received".tr(),
                     style: GoogleFonts.cairo(
                       color: Colors.white,
                       fontSize: 16,
@@ -664,5 +912,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         ),
       ),
     );
+  }
+
+  // ── Rating stars helper ───────────────────────────────────────────────────
+  List<Widget> _buildRatingStars(double rating) {
+    final List<Widget> stars = [];
+    final int fullStars = rating.floor();
+    final bool hasHalf = (rating - fullStars) >= 0.5;
+
+    for (int i = 0; i < fullStars && i < 5; i++) {
+      stars.add(const Icon(Icons.star, color: Colors.orange, size: 14));
+    }
+    if (hasHalf && stars.length < 5) {
+      stars.add(const Icon(Icons.star_half, color: Colors.orange, size: 14));
+    }
+    while (stars.length < 5) {
+      stars.add(const Icon(Icons.star_border, color: Colors.orange, size: 14));
+    }
+    return stars;
   }
 }

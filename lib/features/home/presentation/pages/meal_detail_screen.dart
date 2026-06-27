@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
@@ -20,23 +21,53 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   int quantity = 1;
   late double _basePrice;
   bool isAddedToCart = false;
+  bool isPromoActive = false;
+  double? oldPrice;
+  int? discountPercent;
 
   Map<String, bool> addons = {
-    'زيادة جبن (+500 ر.ي)': false,
-    'بدون بصل': false,
-    'مشروب غازي (+800 ر.ي)': false,
+    'extra_cheese': false,
+    'no_onion': false,
+    'soda': false,
   };
 
   @override
   void initState() {
     super.initState();
-    _basePrice = widget.meal.price;
+    
+    final now = DateTime.now();
+    isPromoActive = widget.meal.priceAfterDiscount != null &&
+        widget.meal.priceAfterDiscount! > 0 &&
+        widget.meal.priceAfterDiscount! < widget.meal.price &&
+        (widget.meal.discountStart == null || widget.meal.discountStart!.isBefore(now)) &&
+        (widget.meal.discountEnd == null || widget.meal.discountEnd!.isAfter(now));
+
+    final double price = isPromoActive 
+        ? widget.meal.priceAfterDiscount! 
+        : (widget.meal.offers.isNotEmpty && widget.meal.offers.first.discountPrice != null 
+            ? widget.meal.offers.first.discountPrice! 
+            : widget.meal.price);
+
+    oldPrice = isPromoActive 
+        ? widget.meal.price 
+        : (widget.meal.offers.isNotEmpty ? widget.meal.price : null);
+
+    if (isPromoActive) {
+      if (widget.meal.discountType == 'percentage' && widget.meal.discountValue != null) {
+        discountPercent = widget.meal.discountValue!.round();
+      } else {
+        final double diff = widget.meal.price - widget.meal.priceAfterDiscount!;
+        discountPercent = ((diff / widget.meal.price) * 100).round();
+      }
+    }
+
+    _basePrice = price;
   }
 
   double get _totalPrice {
     double total = _basePrice;
-    if (addons['زيادة جبن (+500 ر.ي)'] == true) total += 500.0;
-    if (addons['مشروب غازي (+800 ر.ي)'] == true) total += 800.0;
+    if (addons['extra_cheese'] == true) total += 500.0;
+    if (addons['soda'] == true) total += 800.0;
     return total * quantity;
   }
 
@@ -44,7 +75,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: context.locale.languageCode == 'ar'
+            ? TextDirection.rtl
+            : TextDirection.ltr,
         child: CustomBackground(
           child: Stack(
             children: [
@@ -173,90 +206,97 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   // 2. كرت تفاصيل الوجبة الأساسية
   // ===========================================================================
   Widget _buildMealHeaderCard() {
-    final String name = widget.meal.name.isNotEmpty ? widget.meal.name : 'وجبة';
-    final String category = 'وجبات سريعة';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final String name = widget.meal.name.isNotEmpty ? widget.meal.name : 'meal_placeholder'.tr();
+    final String category = 'fast_food'.tr();
     final String desc = widget.meal.description.isNotEmpty
         ? widget.meal.description
-        : 'وصف للوجبة غير متوفر';
+        : 'no_description_available'.tr();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1A34).withOpacity(0.65),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            category,
-            style: GoogleFonts.cairo(color: Colors.white54, fontSize: 12),
-          ),
-          const SizedBox(height: 5),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.favorite_border,
-                color: Colors.white54,
-                size: 24,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1A34).withOpacity(0.5) : Colors.white.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1), width: 1),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                category,
+                style: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+              ),
+              const SizedBox(height: 5),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: GoogleFonts.cairo(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.favorite_border,
+                    color: isDark ? Colors.white54 : Colors.black54,
+                    size: 24,
+                  ),
+                ],
+              ),
           const SizedBox(height: 10),
 
           // البادجات (توصيل مجاني، خصم)
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF5555).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFFF5555).withOpacity(0.5),
+              if (isPromoActive && discountPercent != null && discountPercent! > 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF5555).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFFF5555).withOpacity(0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.local_offer,
+                        color: Color(0xFFFF5555),
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "$discountPercent%",
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFFFF5555),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.local_offer,
-                      color: Color(0xFFFF5555),
-                      size: 12,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "30%",
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFFFF5555),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
+              ],
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -273,7 +313,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      "توصيل مجاني",
+                      "free_delivery".tr(),
                       style: GoogleFonts.cairo(
                         color: Colors.cyanAccent,
                         fontSize: 10,
@@ -290,7 +330,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           Text(
             desc,
             style: GoogleFonts.cairo(
-              color: Colors.white70,
+              color: isDark ? Colors.white70 : Colors.black87,
               fontSize: 13,
               height: 1.5,
             ),
@@ -298,7 +338,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 15),
-            child: Divider(color: Colors.white.withOpacity(0.1), height: 1),
+            child: Divider(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1), height: 1),
           ),
 
           // شريط المعلومات (سعرات، تنبيهات)
@@ -307,25 +347,28 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
             children: [
               _buildInfoBadge(
                 Icons.local_fire_department_outlined,
-                "437 سعرة حرارية",
+                "calories_count".tr(namedArgs: {'count': '437'}),
               ),
-              _buildInfoBadge(Icons.info_outline, "تنبيهات"),
-              _buildInfoBadge(Icons.analytics_outlined, "الحقائق التغذوية"),
+              _buildInfoBadge(Icons.info_outline, "alerts".tr()),
+              _buildInfoBadge(Icons.analytics_outlined, "nutritional_facts".tr()),
             ],
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildInfoBadge(IconData icon, String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
-        Icon(icon, color: Colors.white54, size: 16),
+        Icon(icon, color: isDark ? Colors.white54 : Colors.black54, size: 16),
         const SizedBox(width: 4),
         Text(
           text,
-          style: GoogleFonts.cairo(color: Colors.white54, fontSize: 11),
+          style: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
         ),
       ],
     );
@@ -338,12 +381,12 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     return Column(
       children: [
         _buildSectionContainer(
-          title: "الإضافات",
-          subtitle: "خيارات متعددة",
+          title: "add_ons".tr(),
+          subtitle: "multiple_choices".tr(),
           isRequired: false,
           children: addons.keys.map((String key) {
             return _buildCheckboxOption(
-              label: key,
+              label: key.tr(),
               price: "",
               value: addons[key]!,
               onChanged: (val) {
@@ -365,41 +408,46 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     required bool isRequired,
     required List<Widget> children,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1A34).withOpacity(0.4),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // رأس القسم
-          Padding(
-            padding: const EdgeInsets.all(15.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1A34).withOpacity(0.4) : Colors.white.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // رأس القسم
+              Padding(
+                padding: const EdgeInsets.all(15.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.cairo(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.cairo(
+                            color: isDark ? Colors.white54 : Colors.black54,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.cairo(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
                 if (isRequired)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -407,13 +455,13 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      "مطلوب",
+                      "required".tr(),
                       style: GoogleFonts.cairo(
-                        color: Colors.white,
+                        color: isDark ? Colors.white : Colors.black87,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -422,13 +470,15 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
               ],
             ),
           ),
-          Divider(color: Colors.white.withOpacity(0.05), height: 1),
+          Divider(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05), height: 1),
 
           // عناصر القسم
           ...children,
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   // --- عنصر خيار شيك بوكس ---
@@ -438,8 +488,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     required bool value,
     required ValueChanged<bool?> onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Theme(
-      data: ThemeData(unselectedWidgetColor: Colors.white54),
+      data: ThemeData(unselectedWidgetColor: isDark ? Colors.white54 : Colors.black54),
       child: CheckboxListTile(
         value: value,
         onChanged: onChanged,
@@ -447,11 +498,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         checkColor: Colors.white,
         title: Text(
           label,
-          style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+          style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         ),
         secondary: Text(
           price,
-          style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12),
+          style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.black54, fontSize: 12),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10),
         dense: true,
@@ -568,7 +619,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                             : DateTime.now().toString(),
                                         name: widget.meal.name.isNotEmpty
                                             ? widget.meal.name
-                                            : 'وجبة سريعة',
+                                            : 'fast_food'.tr(),
                                         price: (_totalPrice / quantity),
                                         imageUrl: widget.meal.imageUrl ??
                                             'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
@@ -584,7 +635,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'فشل الإضافة: ${e.toString()}',
+                                          'failed_to_add'.tr() + ': ${e.toString()}',
                                           style: GoogleFonts.cairo(color: Colors.white),
                                         ),
                                         backgroundColor: Colors.red.shade700,
@@ -602,7 +653,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        "إضافة",
+                                        "add".tr(),
                                         style: GoogleFonts.cairo(
                                           color: Colors.white,
                                           fontSize: 16,
@@ -616,9 +667,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                             CrossAxisAlignment.end,
                                         children: [
                                           if (quantity ==
-                                              1) // إظهار السعر القديم فقط إذا كانت الكمية 1
+                                              1 && oldPrice != null) // إظهار السعر القديم فقط إذا كانت الكمية 1
                                             Text(
-                                              "${(_basePrice * 1.2).toStringAsFixed(0)} ر.ي",
+                                              "${oldPrice!.toStringAsFixed(0)} " + "currency".tr(),
                                               style: GoogleFonts.poppins(
                                                 color: Colors.white54,
                                                 fontSize: 10,
@@ -628,7 +679,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                               ),
                                             ),
                                           Text(
-                                            "${_totalPrice.toStringAsFixed(2)} ر.ي",
+                                            "${_totalPrice.toStringAsFixed(2)} " + "currency".tr(),
                                             style: GoogleFonts.poppins(
                                               color: Colors.white,
                                               fontSize: 16,
@@ -658,7 +709,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            "تمت الإضافة للسلة بنجاح",
+                            "added_to_cart_success".tr(),
                             style: GoogleFonts.cairo(
                               color: Colors.white,
                               fontSize: 14,
@@ -682,7 +733,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                               ),
                             ),
                             child: Text(
-                              "الانتقال للسلة",
+                              "go_to_cart".tr(),
                               style: GoogleFonts.cairo(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,

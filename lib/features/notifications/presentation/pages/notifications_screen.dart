@@ -137,9 +137,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _buildNotificationCard(Map<String, dynamic> notification, bool isDark) {
     final bool isRead = notification['isRead'] ?? (notification['read_at'] != null);
-    final String type = notification['type'] ?? 'system';
-    final String title = notification['title'] ?? 'إشعار';
-    final String body = notification['body'] ?? '';
+    
+    // Parse inner data wrapper
+    final payload = notification['data'] is Map ? notification['data'] : {};
+    
+    // Determine type from inner status or outer type
+    final String type = payload['status'] ?? notification['type'] ?? 'system';
+    final String title = payload['title'] ?? notification['title'] ?? 'إشعار';
+    final String body = payload['message'] ?? notification['body'] ?? '';
     final String time = notification['time'] ?? notification['created_at'] ?? '';
 
     IconData iconData;
@@ -163,6 +168,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ? Colors.red.withOpacity(0.15) 
             : Colors.red.withOpacity(0.05);
         customCardBorderColor = Colors.red.withOpacity(0.3);
+        break;
+      case 'verified':
+      case 'accepted':
+        iconData = Icons.check_circle_outline;
+        iconColor = Colors.green;
+        customCardBgColor = isDark 
+            ? Colors.green.withOpacity(0.15) 
+            : Colors.green.withOpacity(0.05);
+        customCardBorderColor = Colors.green.withOpacity(0.3);
         break;
       case 'system':
       default:

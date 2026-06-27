@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
@@ -106,9 +108,11 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
                           padding: const EdgeInsets.only(top: 50.0),
                           child: Center(
                             child: Text(
-                              "لا توجد وجبات مطابقة لبحثك 🍽️",
+                              "no_meals_found".tr(),
                               style: GoogleFonts.cairo(
-                                color: Colors.white54,
+                                color: Theme.of(context).brightness == Brightness.dark 
+                                    ? Colors.white54 
+                                    : Colors.black54,
                                 fontSize: 18,
                               ),
                             ),
@@ -211,7 +215,7 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "وجبات",
+                "meals".tr(),
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontSize: 28,
@@ -222,14 +226,14 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
               Row(
                 children: [
                   Text(
-                    "ابتداءً من ",
+                    "starting_from".tr(),
                     style: GoogleFonts.cairo(
                       color: Colors.white70,
                       fontSize: 16,
                     ),
                   ),
                   Text(
-                    "19 ر.ي",
+                    "19 " + "currency".tr(),
                     style: GoogleFonts.cairo(
                       color: const Color(
                         0xFFFF5555,
@@ -251,30 +255,37 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
   // 2. شريط البحث
   // ===========================================================================
   Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1A34).withOpacity(0.60),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: _filterMeals,
-        style: GoogleFonts.cairo(color: Colors.white),
-        textAlign: TextAlign.right,
-        decoration: InputDecoration(
-          hintText: "ابحث عن مطعم أو وجبة",
-          hintStyle: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-            onPressed: () {
-              _searchController.clear();
-              _filterMeals('');
-            },
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(15),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1A34).withOpacity(0.5) : Colors.white.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
           ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _filterMeals,
+            style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
+            textAlign: TextAlign.right,
+            decoration: InputDecoration(
+              hintText: "search_restaurant_or_meal".tr(),
+              hintStyle: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54, fontSize: 14),
+              prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.black54),
+              suffixIcon: IconButton(
+                icon: Icon(Icons.close, color: isDark ? Colors.white54 : Colors.black54, size: 20),
+                onPressed: () {
+                  _searchController.clear();
+                  _filterMeals('');
+                },
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 15),
+            ),
+          ),
         ),
       ),
     );
@@ -284,213 +295,291 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
   // 3. كرت الوجبة (Glassmorphism Style)
   // ===========================================================================
   Widget _buildMealCard(Meal meal) {
-    final String name = meal.name.isNotEmpty ? meal.name : 'وجبة';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final String name = meal.name.isNotEmpty ? meal.name : 'meal_placeholder'.tr();
     final String image =
         meal.imageUrl ??
         'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80';
     
-    // Check for offers
-    final bool hasOffers = meal.offers.isNotEmpty;
-    final double price = hasOffers && meal.offers.first.discountPrice != null 
-        ? meal.offers.first.discountPrice! 
-        : meal.price;
+    // Check for promotions / offers
+    final now = DateTime.now();
+    final bool isPromoActive = meal.priceAfterDiscount != null &&
+        meal.priceAfterDiscount! > 0 &&
+        meal.priceAfterDiscount! < meal.price &&
+        (meal.discountStart == null || meal.discountStart!.isBefore(now)) &&
+        (meal.discountEnd == null || meal.discountEnd!.isAfter(now));
+
+    final double price = isPromoActive 
+        ? meal.priceAfterDiscount! 
+        : (meal.offers.isNotEmpty && meal.offers.first.discountPrice != null 
+            ? meal.offers.first.discountPrice! 
+            : meal.price);
         
-    final double? oldPrice = hasOffers ? meal.price : null;
+    final double? oldPrice = isPromoActive 
+        ? meal.price 
+        : (meal.offers.isNotEmpty ? meal.price : null);
+
+    int? discountPercent;
+    if (isPromoActive) {
+      if (meal.discountType == 'percentage' && meal.discountValue != null) {
+        discountPercent = meal.discountValue!.round();
+      } else {
+        final double diff = meal.price - meal.priceAfterDiscount!;
+        discountPercent = ((diff / meal.price) * 100).round();
+      }
+    }
     
-    final String category = "وجبات سريعة";
+    final String category = "fast_food".tr();
+    final bool isAvailable = meal.available;
 
     return GestureDetector(
-      onTap: () {
+      onTap: isAvailable ? () {
         context.push('/meal-detail', extra: meal);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1A34).withOpacity(0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- الجزء العلوي: الصورة والشعار ---
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // صورة الوجبة
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
-                  child: Container(
-                    height: 120,
-                    width: double.infinity,
-                    color: Colors.white.withOpacity(0.05),
-                    child: Image.network(
-                      image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[850],
-                        child: const Center(
-                          child: Icon(
-                            Icons.fastfood,
-                            color: Colors.grey,
-                            size: 40,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // شعار المطعم (دائري فوق الصورة)
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/group.jpg'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+      } : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1A34).withOpacity(0.5) : Colors.white.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              boxShadow: isDark ? [] : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
-
-            // --- الجزء السفلي: التفاصيل ---
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Opacity(
+              opacity: isAvailable ? 1.0 : 0.5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // --- الجزء العلوي: الصورة والشعار ---
+                Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    // اسم المطعم أو التصنيف
-                    Text(
-                      category.isNotEmpty ? category : "وجبات سريعة",
-                      style: GoogleFonts.cairo(
-                        color: Colors.white54,
-                        fontSize: 10,
-                        height: 1.2,
+                    // صورة الوجبة
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(20),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-
-                    // اسم الوجبة
-                    Text(
-                      name,
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-
-                    // الوقت والمسافة
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          color: Colors.white54,
-                          size: 10,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          "30 دقيقة",
-                          style: GoogleFonts.cairo(
-                            color: Colors.white54,
-                            fontSize: 10,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        const Text(
-                          "|",
-                          style: TextStyle(color: Colors.white24, fontSize: 10),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          "2.5 كم",
-                          style: GoogleFonts.cairo(
-                            color: Colors.white54,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-
-                    // التوصيل المجاني
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.delivery_dining,
-                          color: Colors.cyanAccent,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "توصيل مجاني",
-                          style: GoogleFonts.cairo(
-                            color: Colors.cyanAccent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 6),
-                    Divider(color: Colors.white.withOpacity(0.05), height: 1),
-                    const SizedBox(height: 6),
-
-                    // الأسعار
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // السعر القديم (مشطوب)
-                        if (oldPrice != null)
-                          Text(
-                            "${oldPrice.toStringAsFixed(0)} ر.ي",
-                            style: GoogleFonts.poppins(
-                              color: Colors.white38,
-                              fontSize: 11,
-                              decoration: TextDecoration.lineThrough,
+                      child: Container(
+                        height: 120,
+                        width: double.infinity,
+                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                        child: Image.network(
+                          image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: isDark ? Colors.grey[850] : Colors.grey[300],
+                            child: Center(
+                              child: Icon(
+                                Icons.fastfood,
+                                color: isDark ? Colors.grey : Colors.grey[500],
+                                size: 40,
+                              ),
                             ),
                           ),
-                        // السعر الجديد
-                        Text(
-                          "${price.toStringAsFixed(0)} ر.ي",
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFFFF5555),
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // شعار المطعم (دائري فوق الصورة)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          image: const DecorationImage(
+                            image: AssetImage('assets/images/group.jpg'),
+                            fit: BoxFit.cover,
                           ),
+                        ),
+                      ),
+                    ),
+                    if (isPromoActive && discountPercent != null && discountPercent > 0)
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF5555),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF5555).withOpacity(0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            "-$discountPercent%",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // --- الجزء السفلي: التفاصيل ---
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // اسم المطعم أو التصنيف
+                        Text(
+                          category.isNotEmpty ? category : "fast_food".tr(),
+                          style: GoogleFonts.cairo(
+                            color: isDark ? Colors.white54 : Colors.black54,
+                            fontSize: 10,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+
+                        // اسم الوجبة
+                        Text(
+                          name,
+                          style: GoogleFonts.cairo(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+
+                        // الوقت والمسافة
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              "thirty_minutes".tr(),
+                              style: GoogleFonts.cairo(
+                                color: isDark ? Colors.white54 : Colors.black54,
+                                fontSize: 10,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              "|",
+                              style: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 10),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              "2.5 " + "km".tr(),
+                              style: GoogleFonts.cairo(
+                                color: isDark ? Colors.white54 : Colors.black54,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+
+                        // التوصيل المجاني
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.delivery_dining,
+                              color: isDark ? Colors.cyanAccent : Colors.teal,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "free_delivery".tr(),
+                              style: GoogleFonts.cairo(
+                                color: isDark ? Colors.cyanAccent : Colors.teal,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 6),
+                        Divider(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05), height: 1),
+                        const SizedBox(height: 6),
+
+                        // الأسعار
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // السعر القديم (مشطوب)
+                            if (oldPrice != null)
+                              Text(
+                                "${oldPrice.toStringAsFixed(0)} " + "currency".tr(),
+                                style: GoogleFonts.poppins(
+                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  fontSize: 11,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                            // السعر الجديد
+                            Text(
+                              "${price.toStringAsFixed(0)} " + "currency".tr(),
+                              style: GoogleFonts.poppins(
+                                color: const Color(0xFFFF5555),
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                // Out of stock banner
+                if (!isAvailable)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    color: Colors.red.withOpacity(0.8),
+                    child: Center(
+                      child: Text(
+                        "out_of_stock".tr(),
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

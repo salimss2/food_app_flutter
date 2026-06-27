@@ -1,9 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../core/api/dio_client.dart';
+import '../../../../core/api/endpoints.dart';
 
-class PrivacyPolicyScreen extends StatelessWidget {
+class PrivacyPolicyScreen extends StatefulWidget {
   const PrivacyPolicyScreen({super.key});
+
+  @override
+  State<PrivacyPolicyScreen> createState() => _PrivacyPolicyScreenState();
+}
+
+class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+  String? _policyContent;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPrivacyPolicy();
+  }
+
+  Future<void> _fetchPrivacyPolicy() async {
+    try {
+      final dio = DioClient().dio;
+      final response = await dio.get(Endpoints.privacyPolicy);
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        String content = '';
+        if (data is Map) {
+          content = (data['data'] ?? data['content'] ?? data['policy'] ?? data.toString()).toString();
+        } else {
+          content = data.toString();
+        }
+
+        setState(() {
+          _policyContent = content;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,99 +103,115 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               // --- 2. المحتوى النصي (Text Content) ---
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(
-                        0xFF1E1A34,
-                      ).withOpacity(0.60), // خلفية زجاجية داكنة
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "آخر تحديث: 20 فبراير 2026",
-                          style: GoogleFonts.cairo(
-                            color: const Color(0xFF0F55E8),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF1E1A34,
+                            ).withOpacity(0.60), // خلفية زجاجية داكنة
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.05)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "آخر تحديث: 20 فبراير 2026",
+                                style: GoogleFonts.cairo(
+                                  color: const Color(0xFF0F55E8),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              if (_policyContent != null && _policyContent!.isNotEmpty)
+                                Text(
+                                  _policyContent!,
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                    height: 1.8,
+                                  ),
+                                )
+                              else
+                                ..._buildFallbackContent(),
+
+                              const SizedBox(height: 10),
+                              Divider(
+                                color: Colors.white.withOpacity(0.1),
+                                thickness: 1,
+                              ),
+                              const SizedBox(height: 20),
+
+                              Center(
+                                child: Text(
+                                  "إذا كان لديك أي أسئلة حول سياسة الخصوصية،\nيرجى التواصل معنا عبر مركز المساعدة.",
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 20),
-
-                        _buildSection(
-                          title: "1. مقدمة",
-                          content:
-                              "مرحباً بك في تطبيقنا. نحن نولي أهمية كبرى لخصوصيتك ونلتزم بحماية بياناتك الشخصية. توضح سياسة الخصوصية هذه كيفية جمع واستخدام ومشاركة معلوماتك عند استخدامك لخدماتنا.",
-                        ),
-
-                        _buildSection(
-                          title: "2. المعلومات التي نجمعها",
-                          content:
-                              "عند التسجيل في التطبيق، نقوم بجمع معلومات مثل اسمك، عنوان بريدك الإلكتروني، ورقم هاتفك. كما نجمع بيانات حول موقعك الجغرافي (بموافقتك) لتقديم خدمة توصيل أفضل.",
-                        ),
-
-                        _buildSection(
-                          title: "3. كيف نستخدم معلوماتك؟",
-                          content:
-                              "نستخدم المعلومات التي نجمعها لـ:\n"
-                              "• معالجة طلباتك وتوصيلها بدقة.\n"
-                              "• تحسين تجربة المستخدم داخل التطبيق.\n"
-                              "• إرسال تحديثات وعروض ترويجية تهمك.\n"
-                              "• الرد على استفساراتك ودعم العملاء.",
-                        ),
-
-                        _buildSection(
-                          title: "4. مشاركة المعلومات",
-                          content:
-                              "نحن لا نقوم ببيع أو تأجير معلوماتك الشخصية لأطراف ثالثة. قد نشارك بعض البيانات الضرورية فقط مع شركائنا (مثل المطاعم وعمال التوصيل) لإتمام طلبك بنجاح.",
-                        ),
-
-                        _buildSection(
-                          title: "5. أمان البيانات",
-                          content:
-                              "نتخذ إجراءات أمنية تقنية وتنظيمية صارمة لحماية بياناتك من الوصول غير المصرح به أو التعديل أو الإفصاح. نستخدم أحدث تقنيات التشفير لضمان سرية معلوماتك.",
-                        ),
-
-                        _buildSection(
-                          title: "6. حقوقك",
-                          content:
-                              "يحق لك في أي وقت الوصول إلى بياناتك الشخصية وتعديلها أو طلب حذفها من أنظمتنا بالكامل من خلال إعدادات حسابك أو بالتواصل مع فريق الدعم.",
-                        ),
-
-                        const SizedBox(height: 10),
-                        Divider(
-                          color: Colors.white.withOpacity(0.1),
-                          thickness: 1,
-                        ),
-                        const SizedBox(height: 20),
-
-                        Center(
-                          child: Text(
-                            "إذا كان لديك أي أسئلة حول سياسة الخصوصية،\nيرجى التواصل معنا عبر مركز المساعدة.",
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
-                              color: Colors.white54,
-                              fontSize: 12,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // --- Fallback Content if API fails ---
+  List<Widget> _buildFallbackContent() {
+    return [
+      _buildSection(
+        title: "1. مقدمة",
+        content:
+            "مرحباً بك في تطبيقنا. نحن نولي أهمية كبرى لخصوصيتك ونلتزم بحماية بياناتك الشخصية. توضح سياسة الخصوصية هذه كيفية جمع واستخدام ومشاركة معلوماتك عند استخدامك لخدماتنا.",
+      ),
+      _buildSection(
+        title: "2. المعلومات التي نجمعها",
+        content:
+            "عند التسجيل في التطبيق، نقوم بجمع معلومات مثل اسمك، عنوان بريدك الإلكتروني، ورقم هاتفك. كما نجمع بيانات حول موقعك الجغرافي (بموافقتك) لتقديم خدمة توصيل أفضل.",
+      ),
+      _buildSection(
+        title: "3. كيف نستخدم معلوماتك؟",
+        content: "نستخدم المعلومات التي نجمعها لـ:\n"
+            "• معالجة طلباتك وتوصيلها بدقة.\n"
+            "• تحسين تجربة المستخدم داخل التطبيق.\n"
+            "• إرسال تحديثات وعروض ترويجية تهمك.\n"
+            "• الرد على استفساراتك ودعم العملاء.",
+      ),
+      _buildSection(
+        title: "4. مشاركة المعلومات",
+        content:
+            "نحن لا نقوم ببيع أو تأجير معلوماتك الشخصية لأطراف ثالثة. قد نشارك بعض البيانات الضرورية فقط مع شركائنا (مثل المطاعم وعمال التوصيل) لإتمام طلبك بنجاح.",
+      ),
+      _buildSection(
+        title: "5. أمان البيانات",
+        content:
+            "نتخذ إجراءات أمنية تقنية وتنظيمية صارمة لحماية بياناتك من الوصول غير المصرح به أو التعديل أو الإفصاح. نستخدم أحدث تقنيات التشفير لضمان سرية معلوماتك.",
+      ),
+      _buildSection(
+        title: "6. حقوقك",
+        content:
+            "يحق لك في أي وقت الوصول إلى بياناتك الشخصية وتعديلها أو طلب حذفها من أنظمتنا بالكامل من خلال إعدادات حسابك أو بالتواصل مع فريق الدعم.",
+      ),
+    ];
   }
 
   // دالة مساعدة لبناء الأقسام النصية لتنظيف الكود
@@ -180,3 +243,4 @@ class PrivacyPolicyScreen extends StatelessWidget {
     );
   }
 }
+

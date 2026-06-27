@@ -103,6 +103,14 @@ class AuthRepository {
     return null;
   }
 
+  // حفظ بيانات جلسة جوجل بنفس المفاتيح التي يستخدمها _handleAuthResponse
+  Future<void> saveGoogleAuthData(UserModel user, String token) async {
+    await prefs.setString('auth_token', token);
+    await prefs.setString('user_data', user.toJson());
+    await prefs.setBool('is_logged_in', true);
+    debugPrint('✅ [Google Auth] Session saved: auth_token, user_data, is_logged_in=true');
+  }
+
   // 3. تسجيل الخروج
   Future<void> logout() async {
     try {

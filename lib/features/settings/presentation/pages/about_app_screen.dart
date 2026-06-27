@@ -1,9 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../core/api/dio_client.dart';
+import '../../../../core/api/endpoints.dart';
 
-class AboutAppScreen extends StatelessWidget {
+class AboutAppScreen extends StatefulWidget {
   const AboutAppScreen({super.key});
+
+  @override
+  State<AboutAppScreen> createState() => _AboutAppScreenState();
+}
+
+class _AboutAppScreenState extends State<AboutAppScreen> {
+  String _description =
+      "تطبيق FastGrab هو وجهتك الأولى لطلب الطعام أونلاين. نحن نهدف إلى توفير تجربة طلب سلسة وسريعة تربطك بأفضل المطاعم المحلية في مدينتك.\n\nسواء كنت تشتهي البيتزا الإيطالية، أو البرجر الكلاسيكي، أو حتى الحلويات، فإن تطبيقنا يوفر لك خيارات واسعة مع واجهة مستخدم سهلة، وطرق دفع آمنة، وخدمة توصيل سريعة وموثوقة.";
+  String _version = "1.0.0";
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAboutData();
+  }
+
+  Future<void> _fetchAboutData() async {
+    try {
+      final dio = DioClient().dio;
+      final response = await dio.get(Endpoints.aboutApp);
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map) {
+          setState(() {
+            _description = (data['data']?['description'] ??
+                    data['description'] ??
+                    data['content'] ??
+                    _description)
+                .toString();
+            _version = (data['data']?['version'] ??
+                    data['version'] ??
+                    _version)
+                .toString();
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _description = data.toString();
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +100,7 @@ class AboutAppScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 15),
                       Text(
-                        "عن التطبيق",
+                        "about_app".tr(), // محول ديناميكي
                         style: GoogleFonts.cairo(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -56,153 +114,162 @@ class AboutAppScreen extends StatelessWidget {
 
               // --- 2. المحتوى (Content) ---
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-
-                      // --- شعار واسم التطبيق ---
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0F55E8), Color(0xFF5D12D2)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF0F55E8).withOpacity(0.4),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.delivery_dining, // أيقونة مؤقتة تعبر عن التوصيل
-                          size: 50,
-                          color: Colors.white,
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      Text(
-                        "FastGrab", // اسم التطبيق كما في شاشة البداية
-                        style: GoogleFonts.poppins(
-                          // استخدام Poppins للاسم الإنجليزي
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      Text(
-                        "الإصدار 1.0.0",
-                        style: GoogleFonts.cairo(
-                          color: const Color(0xFF0F55E8),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      // --- حاوية النبذة التعريفية (Glass Container) ---
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E1A34).withOpacity(0.60),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.05),
-                          ),
-                        ),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "مرحباً بك في FastGrab!",
-                              style: GoogleFonts.cairo(
+                            const SizedBox(height: 20),
+
+                            // --- شعار واسم التطبيق ---
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF0F55E8),
+                                    Color(0xFF5D12D2)
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0F55E8)
+                                        .withOpacity(0.4),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.delivery_dining, // أيقونة مؤقتة تعبر عن التوصيل
+                                size: 50,
                                 color: Colors.white,
-                                fontSize: 18,
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            Text(
+                              "FastGrab", // اسم التطبيق كما في شاشة البداية
+                              style: GoogleFonts.poppins(
+                                // استخدام Poppins للاسم الإنجليزي
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+
+                            const SizedBox(height: 5),
+
+                            Text(
+                              "${'version_label'.tr()} $_version", // محول ديناميكي
+                              style: GoogleFonts.cairo(
+                                color: const Color(0xFF0F55E8),
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 15),
-                            Text(
-                              "تطبيق FastGrab هو وجهتك الأولى لطلب الطعام أونلاين. نحن نهدف إلى توفير تجربة طلب سلسة وسريعة تربطك بأفضل المطاعم المحلية في مدينتك.\n\n"
-                              "سواء كنت تشتهي البيتزا الإيطالية، أو البرجر الكلاسيكي، أو حتى الحلويات، فإن تطبيقنا يوفر لك خيارات واسعة مع واجهة مستخدم سهلة، وطرق دفع آمنة، وخدمة توصيل سريعة وموثوقة.",
-                              style: GoogleFonts.cairo(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                height: 1.8,
+
+                            const SizedBox(height: 40),
+
+                            // --- حاوية النبذة التعريفية (Glass Container) ---
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color:
+                                    const Color(0xFF1E1A34).withOpacity(0.60),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.05),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "welcome_to_fastgrab".tr(), // محول ديناميكي
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  Text(
+                                    _description, // البيانات من الـ API
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      height: 1.8,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 25),
+
+                                  // مميزات التطبيق بشكل مبسط
+                                  _buildFeatureItem(
+                                    Icons.rocket_launch,
+                                    "fast_and_reliable_delivery".tr(),
+                                  ),
+                                  _buildFeatureItem(
+                                    Icons.restaurant_menu,
+                                    "wide_variety_of_restaurants".tr(),
+                                  ),
+                                  _buildFeatureItem(
+                                    Icons.payment,
+                                    "safe_multiple_payment_methods".tr(),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 25),
 
-                            // مميزات التطبيق بشكل مبسط
-                            _buildFeatureItem(
-                              Icons.rocket_launch,
-                              "توصيل سريع وموثوق",
+                            const SizedBox(height: 40),
+
+                            // --- روابط التواصل ---
+                            Text(
+                              "follow_us_on_social_media".tr(), // محول ديناميكي
+                              style: GoogleFonts.cairo(
+                                color: Colors.white54,
+                                fontSize: 14,
+                              ),
                             ),
-                            _buildFeatureItem(
-                              Icons.restaurant_menu,
-                              "تنوع كبير في المطاعم",
+                            const SizedBox(height: 15),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildSocialIcon(Icons.facebook),
+                                const SizedBox(width: 15),
+                                _buildSocialIcon(
+                                    Icons.alternate_email), // تويتر/X
+                                const SizedBox(width: 15),
+                                _buildSocialIcon(
+                                  Icons.camera_alt_outlined,
+                                ), // انستجرام
+                              ],
                             ),
-                            _buildFeatureItem(
-                              Icons.payment,
-                              "طرق دفع آمنة ومتعددة",
+
+                            const SizedBox(height: 30),
+
+                            // حقوق النشر
+                            Text(
+                              "all_rights_reserved".tr(), // محول ديناميكي
+                              style: GoogleFonts.cairo(
+                                color: Colors.white30,
+                                fontSize: 12,
+                              ),
                             ),
+                            const SizedBox(height: 20),
                           ],
                         ),
                       ),
-
-                      const SizedBox(height: 40),
-
-                      // --- روابط التواصل ---
-                      Text(
-                        "تابعنا على منصات التواصل",
-                        style: GoogleFonts.cairo(
-                          color: Colors.white54,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 15),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildSocialIcon(Icons.facebook),
-                          const SizedBox(width: 15),
-                          _buildSocialIcon(Icons.alternate_email), // تويتر/X
-                          const SizedBox(width: 15),
-                          _buildSocialIcon(
-                            Icons.camera_alt_outlined,
-                          ), // انستجرام
-                        ],
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // حقوق النشر
-                      Text(
-                        "© 2026 جميع الحقوق محفوظة لـ FastGrab",
-                        style: GoogleFonts.cairo(
-                          color: Colors.white30,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),
@@ -256,3 +323,4 @@ class AboutAppScreen extends StatelessWidget {
     );
   }
 }
+

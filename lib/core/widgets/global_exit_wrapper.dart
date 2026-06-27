@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,7 +15,7 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
     context: context,
     builder: (context) {
       return Directionality(
-        textDirection: TextDirection.rtl,
+        textDirection: context.locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
         child: AlertDialog(
           backgroundColor: bgColor,
           shape: RoundedRectangleBorder(
@@ -25,7 +26,7 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
               const Icon(Icons.exit_to_app, color: Colors.redAccent, size: 28),
               const SizedBox(width: 10),
               Text(
-                "تأكيد الخروج",
+                "confirm_exit".tr(),
                 style: GoogleFonts.cairo(
                   color: titleColor,
                   fontWeight: FontWeight.bold,
@@ -34,14 +35,14 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
             ],
           ),
           content: Text(
-            "هل أنت متأكد أنك تريد الخروج من التطبيق؟",
+            "confirm_exit_message".tr(),
             style: GoogleFonts.cairo(color: contentColor, fontSize: 16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(
-                "إلغاء",
+                "cancel".tr(),
                 style: GoogleFonts.cairo(
                   color: cancelColor,
                   fontWeight: FontWeight.bold,
@@ -57,7 +58,7 @@ Future<bool?> showExitConfirmationDialog(BuildContext context) {
               ),
               onPressed: () => Navigator.of(context).pop(true),
               child: Text(
-                "خروج",
+                "exit".tr(),
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

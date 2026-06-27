@@ -59,6 +59,12 @@ class OrderProvider extends ChangeNotifier {
     String? paymentMethod,
     String? receiptNumber,
     File? receiptImage,
+    required double deliveryFee,
+    required String restaurantId,
+    required List<Map<String, dynamic>> items,
+    required double customerLat,
+    required double customerLng,
+    String? couponCode,
   }) async {
     isLoading = true;
     lastError = null;
@@ -77,6 +83,15 @@ class OrderProvider extends ChangeNotifier {
       if (receiptNumber != null) {
         fields['receipt_number'] = receiptNumber;
       }
+      if (couponCode != null) {
+        fields['coupon_code'] = couponCode;
+      }
+      
+      fields['delivery_fee'] = deliveryFee;
+      fields['restaurant_id'] = restaurantId;
+      fields['items'] = items;
+      fields['customer_lat'] = customerLat;
+      fields['customer_lng'] = customerLng;
       
       dynamic payload;
       
@@ -124,6 +139,55 @@ class OrderProvider extends ChangeNotifier {
       lastError = msg;
       debugPrint('Error in placeOrder: $e');
       return (false, msg, null);
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Submit Order Review — POST /api/v1/orders/{orderId}/review
+  // ---------------------------------------------------------------------------
+  Future<(bool, String)> submitOrderReview(
+    int orderId,
+    int mealsRating,
+    int driverRating,
+    int restaurantRating,
+    String? comment,
+  ) async {
+    isLoading = true;
+    lastError = null;
+    notifyListeners();
+
+    try {
+      final response = await _dio.post(
+        Endpoints.submitReview(orderId),
+        data: {
+          'meals_rating': mealsRating,
+          'driver_rating': driverRating,
+          'restaurant_rating': restaurantRating,
+          'comment': comment,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data;
+        return (true, data['message']?.toString() ?? 'thank_you_rating');
+      }
+      return (false, 'فشل إرسال التقييم');
+    } on DioException catch (e) {
+      final serverMsg = e.response?.data?['message']?.toString();
+      final msg = serverMsg ?? e.message ?? 'تعذّر الاتصال بالخادم';
+      lastError = msg;
+      debugPrint('DioException in submitOrderReview:');
+      debugPrint('  Status : ${e.response?.statusCode}');
+      debugPrint('  Data   : ${e.response?.data}');
+      return (false, msg);
+    } catch (e) {
+      final msg = e.toString();
+      lastError = msg;
+      debugPrint('Error in submitOrderReview: $e');
+      return (false, msg);
     } finally {
       isLoading = false;
       notifyListeners();

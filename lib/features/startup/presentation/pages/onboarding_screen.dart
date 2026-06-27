@@ -146,8 +146,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: ElevatedButton(
                                 onPressed: () {
                                   if (currentIndex == contents.length - 1) {
-                                    // --- التعديل هنا: الانتقال باستخدام go_router ---
-                                    context.go('/location-access');
+                                    // 🌟 التعديل هنا: الانتقال إلى شاشة تسجيل الدخول
+                                    context.go('/login');
                                   } else {
                                     _controller.nextPage(
                                       duration: const Duration(
@@ -195,8 +195,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             right: 20,
             child: TextButton(
               onPressed: () {
-                // --- التعديل هنا: الانتقال مباشرة باستخدام go_router ---
-                context.go('/location-access');
+                // 🌟 التعديل هنا: الانتقال مباشرة إلى شاشة تسجيل الدخول
+                context.go('/login');
               },
               child: const Row(
                 children: [

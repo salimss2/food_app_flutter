@@ -2,7 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../core/api/dio_client.dart';
+import '../../../../core/api/endpoints.dart';
 
 class ComplaintOrInquiryScreen extends StatefulWidget {
   const ComplaintOrInquiryScreen({super.key});
@@ -13,73 +16,77 @@ class ComplaintOrInquiryScreen extends StatefulWidget {
 }
 
 class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
-  String selectedType = 'استفسار'; // Options: 'شكوى', 'استفسار'
+  // 🌟 التعديل هنا: القيمة الافتراضية أصبحت بالإنجليزية ليفهمها السيرفر
+  String selectedType = 'inquiry'; // Options: 'complaint', 'inquiry'
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _detailsController = TextEditingController();
+  bool _isLoading = false;
 
-  void _submit() {
-    if (_subjectController.text.trim().isEmpty ||
-        _detailsController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'الرجاء تعبئة جميع الحقول',
-            style: GoogleFonts.cairo(color: Colors.white),
-          ),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _detailsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitForm() async {
+    final subject = _subjectController.text.trim();
+    final details = _detailsController.text.trim();
+
+    if (subject.isEmpty || details.isEmpty) {
+      _showSnackBar('الرجاء تعبئة جميع الحقول', Colors.red.shade700);
       return;
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: const Color(0xFF1E1A34),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              "تم الإرسال",
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            content: Text(
-              "تم إرسال رسالتك بنجاح، سيقوم فريق الدعم بالرد عليك قريباً.",
-              style: GoogleFonts.cairo(color: Colors.white54, fontSize: 15),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx); // Close dialog
-                  context.pop(); // Go back to previous screen
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED922A),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  "حسناً",
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final dio = DioClient().dio;
+      final response = await dio.post(
+        Endpoints.sendSupportMessage,
+        data: {
+          'type': selectedType, // 🌟 سيتم إرسال inquiry أو complaint
+          'subject': subject,
+          'details': details,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _showSnackBar('تم إرسال رسالتك بنجاح', Colors.green.shade700);
+        _subjectController.clear();
+        _detailsController.clear();
+        
+        if (mounted) {
+          context.pop();
+        }
+      }
+    } on DioException catch (e) {
+      debugPrint('API Error: ${e.response?.data}');
+      _showSnackBar('فشل في إرسال الرسالة، يرجى المحاولة لاحقاً', Colors.red.shade700);
+    } catch (e) {
+      debugPrint('Unexpected Error: $e');
+      _showSnackBar('حدث خطأ غير متوقع', Colors.red.shade700);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showSnackBar(String message, Color backgroundColor) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.cairo(color: Colors.white),
+        ),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -148,9 +155,10 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
                           width: double.infinity,
                           height: 55,
                           child: ElevatedButton(
-                            onPressed: _submit,
+                            onPressed: _isLoading ? null : _submitForm,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFED922A),
+                              disabledBackgroundColor: Colors.grey.shade700,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
                               ),
@@ -159,14 +167,23 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
                                 0xFFED922A,
                               ).withOpacity(0.5),
                             ),
-                            child: Text(
-                              "إرسال",
-                              style: GoogleFonts.cairo(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    "إرسال",
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -229,18 +246,20 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
   Widget _buildTypeSelector() {
     return Row(
       children: [
-        _buildTypeChip('استفسار'),
+        // 🌟 التعديل هنا: تمرير النص للواجهة والقيمة للسيرفر
+        _buildTypeChip(title: 'استفسار', value: 'inquiry'),
         const SizedBox(width: 15),
-        _buildTypeChip('شكوى'),
+        _buildTypeChip(title: 'شكوى', value: 'complaint'),
       ],
     );
   }
 
-  Widget _buildTypeChip(String type) {
-    bool isSelected = selectedType == type;
+  // 🌟 التعديل هنا: استقبال المتغيرين المنفصلين
+  Widget _buildTypeChip({required String title, required String value}) {
+    bool isSelected = selectedType == value;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => selectedType = type),
+        onTap: () => setState(() => selectedType = value), // يحفظ القيمة الإنجليزية
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
@@ -265,7 +284,7 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
           ),
           child: Center(
             child: Text(
-              type,
+              title, // يعرض النص العربي في الواجهة
               style: GoogleFonts.cairo(
                 color: isSelected ? Colors.white : Colors.white54,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,

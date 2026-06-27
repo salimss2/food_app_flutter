@@ -41,10 +41,10 @@ class _CustomTextFieldState extends State<CustomTextField> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = isDark ? Colors.white : Colors.black87;
     final Color labelColor = isDark ? Colors.white70 : Colors.black54;
-    final Color hintColor = isDark ? Colors.white30 : Colors.black38;
-    final Color fillColor = isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.6);
+    final Color hintColor = isDark ? Colors.white54 : Colors.black54;
+    final Color fillColor = isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03);
     final Color borderColor = isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1);
-    final Color iconColor = isDark ? Colors.white60 : Colors.black54;
+    final Color iconColor = isDark ? Colors.white : Colors.black87;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

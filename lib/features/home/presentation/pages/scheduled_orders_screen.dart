@@ -1,9 +1,11 @@
 import 'dart:ui' show ImageFilter;
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:provider/provider.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/schedule_provider.dart';
@@ -106,7 +108,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
             ),
           ),
           Text(
-            "الطلبات المجدولة",
+            "scheduled_orders_title".tr(),
             style: GoogleFonts.cairo(
               color: Colors.white,
               fontSize: 18,
@@ -127,7 +129,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
           Icon(Icons.schedule, color: Colors.white.withOpacity(0.15), size: 90),
           const SizedBox(height: 20),
           Text(
-            "لا توجد طلبات مجدولة",
+            "no_scheduled_orders".tr(),
             style: GoogleFonts.cairo(
               color: Colors.white54,
               fontSize: 18,
@@ -197,7 +199,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "طلب #$orderNumber",
+                      "order_number_title".tr(namedArgs: {'number': orderNumber}),
                       style: GoogleFonts.cairo(
                         color: Colors.white,
                         fontSize: 15,
@@ -205,7 +207,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                       ),
                     ),
                     Text(
-                      "$itemsCount عناصر",
+                      "items_count_label".tr(namedArgs: {'count': itemsCount}),
                       style: GoogleFonts.cairo(
                         color: Colors.white54,
                         fontSize: 12,
@@ -224,7 +226,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  "مجدول",
+                  "scheduled_status".tr(),
                   style: GoogleFonts.cairo(
                     color: const Color(0xFFED922A),
                     fontSize: 12,
@@ -280,11 +282,11 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "المجموع الكلي",
+                "grand_total".tr(),
                 style: GoogleFonts.cairo(color: Colors.white54, fontSize: 13),
               ),
               Text(
-                "$totalAmount ر.ي",
+                "$totalAmount ${'currency'.tr()}",
                 style: GoogleFonts.poppins(
                   color: const Color(0xFFED922A),
                   fontSize: 16,
@@ -302,7 +304,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
               onPressed: () => _showOrderDetailsBottomSheet(context, order),
               icon: const Icon(Icons.remove_red_eye_outlined, color: Color(0xFFED922A), size: 18),
               label: Text(
-                'تفاصيل الطلب',
+                'order_details'.tr(),
                 style: GoogleFonts.cairo(
                   color: const Color(0xFFED922A),
                   fontWeight: FontWeight.bold,
@@ -369,7 +371,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "طلب #$orderNumber",
+                      "order_number_title".tr(namedArgs: {'number': orderNumber}),
                       style: GoogleFonts.cairo(
                         color: Colors.white,
                         fontSize: 18,
@@ -386,7 +388,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        "مجدول",
+                        "scheduled_status".tr(),
                         style: GoogleFonts.cairo(
                           color: const Color(0xFFED922A),
                           fontSize: 12,
@@ -410,7 +412,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("الوقت المجدول", style: GoogleFonts.cairo(color: Colors.white54)),
+                          Text("scheduled_time".tr(), style: GoogleFonts.cairo(color: Colors.white54)),
                           Text(formattedTime, style: GoogleFonts.poppins(color: Colors.white)),
                         ],
                       ),
@@ -418,7 +420,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("عدد العناصر", style: GoogleFonts.cairo(color: Colors.white54)),
+                          Text("number_of_items".tr(), style: GoogleFonts.cairo(color: Colors.white54)),
                           Text("$itemsCount", style: GoogleFonts.poppins(color: Colors.white)),
                         ],
                       ),
@@ -426,8 +428,8 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("المجموع الكلي", style: GoogleFonts.cairo(color: Colors.white54)),
-                          Text("$totalAmount ر.ي", style: GoogleFonts.poppins(color: const Color(0xFFED922A), fontWeight: FontWeight.bold)),
+                          Text("grand_total".tr(), style: GoogleFonts.cairo(color: Colors.white54)),
+                          Text("$totalAmount ${'currency'.tr()}", style: GoogleFonts.poppins(color: const Color(0xFFED922A), fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ],
@@ -446,7 +448,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                         },
                         icon: const Icon(Icons.edit, size: 18),
                         label: Text(
-                          "تعديل الموعد",
+                          "edit_schedule_time".tr(),
                           style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
                         ),
                         style: OutlinedButton.styleFrom(
@@ -473,7 +475,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 title: Text(
-                                  "تأكيد الإلغاء",
+                                  "confirm_cancellation".tr(),
                                   style: GoogleFonts.cairo(
                                     color: Colors.white,
                                     fontSize: 16,
@@ -481,13 +483,13 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                                   ),
                                 ),
                                 content: Text(
-                                  "هل أنت متأكد من إلغاء الطلب؟",
+                                  "confirm_cancel_order_message".tr(),
                                   style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(ctx, false),
-                                    child: Text("تراجع", style: GoogleFonts.cairo(color: Colors.white54)),
+                                    child: Text("undo".tr(), style: GoogleFonts.cairo(color: Colors.white54)),
                                   ),
                                   ElevatedButton(
                                     onPressed: () => Navigator.pop(ctx, true),
@@ -497,7 +499,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                     ),
-                                    child: Text("نعم، إلغاء", style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    child: Text("yes_cancel".tr(), style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold)),
                                   ),
                                 ],
                               ),
@@ -513,7 +515,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'تم إلغاء الطلب بنجاح',
+                                    'order_cancelled_successfully'.tr(),
                                     style: GoogleFonts.cairo(color: Colors.white),
                                   ),
                                   backgroundColor: Colors.green.shade700,
@@ -525,7 +527,7 @@ class _ScheduledOrdersScreenState extends State<ScheduledOrdersScreen> {
                         },
                         icon: const Icon(Icons.cancel_outlined, size: 18, color: Colors.white),
                         label: Text(
-                          "إلغاء الطلب",
+                          "cancel_order".tr(),
                           style: GoogleFonts.cairo(fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(

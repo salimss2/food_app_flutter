@@ -1,9 +1,14 @@
+import 'dart:convert';
+
+import 'package:customer_app/core/api/endpoints.dart';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart'; // استيراد حزمة التوجيه
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/shiny_button.dart';
@@ -49,60 +54,60 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> signInWithGoogle() async {
     try {
-      // 1. تهيئة خدمة جوجل (هام: ضع الـ Web Client ID هنا وليس الـ Android ID)
-      // 1. تهيئة خدمة جوجل 
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        serverClientId: 'ضع_معرف_الويب_الخاص_بك_هنا.apps.googleusercontent.com', 
-        scopes: ['email', 'profile'],
-      );
-
-      // 2. إظهار نافذة جوجل لاختيار الحساب
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-
-      if (googleUser == null) {
-        // المستخدم قام بإلغاء العملية
-        return;
+      // 1. جلب الـ FCM Token الخاص بالإشعارات قبل كل شيء
+      String? fcmToken;
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+        print("FCM Token: $fcmToken");
+      } catch (e) {
+        print("Error getting FCM Token: $e");
       }
 
-      // 3. الحصول على الـ Tokens من جوجل
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      await googleSignIn.signOut();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) return;
+
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
       final String? idToken = googleAuth.idToken;
 
       if (idToken != null) {
-        // 4. إرسال الـ idToken إلى سيرفر Laravel الخاص بك
         final dio = Dio();
         final response = await dio.post(
-          'http://10.0.0.4:8000/api/auth/google-signin',
-          data: {'idToken': idToken},
+          Endpoints.googleSignIn,
+          data: {
+            'idToken': idToken,
+            'fcm_token': fcmToken, // 👉 إرسال توكن الإشعارات للسيرفر
+          },
         );
 
         if (response.statusCode == 200 && response.data['status'] == true) {
-          // تم الدخول بنجاح!
           final String laravelToken = response.data['token'];
           final userData = response.data['user'];
 
-          // قم بحفظ laravelToken في SharedPreferences إذا أردت
+          // 2. حفظ البيانات في الذاكرة الدائمة (للبقاء في التطبيق عند إعادة التشغيل)
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', laravelToken);
+          await prefs.setString(
+            'user_data',
+            jsonEncode(userData),
+          ); // حفظ كائن المستخدم كاملاً
 
-          print("Login Success: ${userData['name']}");
+          // 3. 🚨 الخطوة الأهم: إخبار الـ AuthBloc بالنجاح
+          // هذا السطر هو ما سيغير كلمة "زائر" إلى اسمك في كل التطبيق فوراً
 
-          // 👉 الانتقال للصفحة الرئيسية بعد النجاح
           if (mounted) {
+            context.read<AuthBloc>().add(
+              GoogleLoginSuccessEvent(userData, laravelToken),
+            );
             context.go('/home');
           }
         }
       }
     } catch (e) {
-      print("Error during Google Sign In: $e");
-      // إظهار رسالة خطأ للمستخدم في حال فشل العملية
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("حدث خطأ أثناء تسجيل الدخول بواسطة جوجل: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      print("Google Sign In Error: $e");
     }
   }
 

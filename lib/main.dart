@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:easy_localization/easy_localization.dart'; 
 
 import 'core/api/dio_client.dart';
 import 'features/auth/data/auth_repository.dart';
@@ -18,10 +19,15 @@ import 'providers/restaurant_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/notifications_provider.dart';
+import 'providers/offers_provider.dart';
 import 'core/services/firebase_messaging_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🌟 2. تهيئة حزمة الترجمة قبل تشغيل التطبيق
+  await EasyLocalization.ensureInitialized();
+
   await initializeDateFormatting('ar', null);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -34,9 +40,16 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: MyApp(
-        authRepository: authRepository,
-        dioClient: dioClient, // 👉 تم تمرير dioClient هنا
+      // 🌟 3. تغليف التطبيق بإعدادات EasyLocalization
+      child: EasyLocalization(
+        supportedLocales: const [Locale('ar'), Locale('en')],
+        path: 'assets/translations', // مسار ملفات الـ JSON
+        fallbackLocale: const Locale('ar'), // لغة الطوارئ
+        startLocale: const Locale('ar'), // اللغة الافتراضية
+        child: MyApp(
+          authRepository: authRepository,
+          dioClient: dioClient,
+        ),
       ),
     ),
   );
@@ -44,19 +57,18 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   final AuthRepository authRepository;
-  final DioClient dioClient; // 👉 تم تعريف المتغير هنا
+  final DioClient dioClient;
 
   const MyApp({
     super.key,
     required this.authRepository,
-    required this.dioClient, // 👉 تمت إضافته للمُشيد
+    required this.dioClient,
   });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 👉 هذا هو السطر السحري الذي سيحل مشكلة الشاشة الحمراء
         Provider<DioClient>.value(value: dioClient),
         BlocProvider<AuthBloc>(
           create: (context) => AuthBloc(authRepository)..add(AppStarted()),
@@ -68,11 +80,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<ScheduleProvider>(
           create: (_) => ScheduleProvider(),
         ),
-
         ChangeNotifierProvider<OrderProvider>(create: (_) => OrderProvider()),
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
         ChangeNotifierProvider<NotificationsProvider>(
           create: (_) => NotificationsProvider(),
+        ),
+        ChangeNotifierProvider<OffersProvider>(
+          create: (_) => OffersProvider()..fetchOffers(),
         ),
       ],
       child: Builder(
@@ -81,6 +95,12 @@ class MyApp extends StatelessWidget {
           return MaterialApp.router(
             title: 'FastGrab',
             debugShowCheckedModeBanner: false,
+            
+            // 🌟 4. إخبار MaterialApp باستخدام اللغات من الحزمة
+            localizationsDelegates: context.localizationDelegates,
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+
             themeMode: themeMode,
             theme: ThemeData(
               brightness: Brightness.light,

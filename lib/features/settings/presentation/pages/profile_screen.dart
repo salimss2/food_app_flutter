@@ -1,6 +1,6 @@
 import 'package:customer_app/core/api/dio_client.dart';
-import 'package:customer_app/core/api/endpoints.dart';
 import 'package:customer_app/features/auth/data/profile_repository.dart';
+import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -10,10 +10,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart'; // <-- استيراد حزمة المسارات
-import 'package:path/path.dart' as path; // <-- استيراد للتعامل مع أسماء الملفات
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 
-import '../../../../core/widgets/global_exit_wrapper.dart';
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/shiny_button.dart';
@@ -113,8 +113,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String? _validateName(String? value) {
-    if (value == null || value.isEmpty) return 'يرجى إدخال الاسم';
-    if (value.length < 3) return 'الاسم يجب أن يكون 3 أحرف على الأقل';
+    if (value == null || value.isEmpty) return 'name_required'.tr();
+    if (value.length < 3) return 'name_too_short'.tr();
     return null;
   }
 
@@ -199,7 +199,7 @@ Future<void> _saveProfile() async {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'تم حفظ جميع التغييرات بنجاح!',
+                'changes_saved_success'.tr(),
                 style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
               ),
               backgroundColor: const Color(0xFF0F55E8),
@@ -245,6 +245,7 @@ Future<void> _saveProfile() async {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopScope(
       canPop: false,
       onPopInvoked: (bool didPop) async {
@@ -297,9 +298,9 @@ Future<void> _saveProfile() async {
                             ),
                           ),
                           child: IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.arrow_back,
-                              color: Colors.white,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                             onPressed: () async {
                               if (hasUnsavedChanges) {
@@ -328,7 +329,7 @@ Future<void> _saveProfile() async {
                           style: GoogleFonts.cairo(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: isDark ? Colors.white : Colors.black87,
                           ),
                         ),
                       ],
@@ -399,30 +400,34 @@ Future<void> _saveProfile() async {
                         const SizedBox(height: 30),
 
                         // --- حاوية النموذج ---
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E1A34).withOpacity(0.60),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.05),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E1A34).withOpacity(0.5) : Colors.white.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                                ),
+                                boxShadow: isDark ? [] : [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Form(
+                              child: Form(
                             key: _formKey,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 CustomTextField(
-                                  label: "الاسم الكامل",
-                                  hint: "أدخل اسمك الكامل",
+                                  label: "full_name".tr(),
+                                  hint: "full_name_hint".tr(),
                                   controller: _nameController,
                                   validator: _validateName,
                                   onChanged: (value) {
@@ -435,7 +440,7 @@ Future<void> _saveProfile() async {
                                 const SizedBox(height: 20),
 
                                 CustomTextField(
-                                  label: "البريد الإلكتروني",
+                                  label: "email".tr(),
                                   hint: "example@mail.com",
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
@@ -449,7 +454,7 @@ Future<void> _saveProfile() async {
                                 const SizedBox(height: 20),
 
                                 CustomTextField(
-                                  label: "رقم الهاتف",
+                                  label: "phone".tr(),
                                   hint: "05X XXX XXXX",
                                   controller: _phoneController,
                                   keyboardType: TextInputType.phone,
@@ -463,8 +468,8 @@ Future<void> _saveProfile() async {
                                 const SizedBox(height: 20),
 
                                 CustomTextField(
-                                  label: "العنوان",
-                                  hint: "المدينة، الحي، الشارع",
+                                  label: "address".tr(),
+                                  hint: "address_hint".tr(),
                                   controller: _addressController,
                                   keyboardType: TextInputType.streetAddress,
                                   onChanged: (value) {
@@ -478,9 +483,9 @@ Future<void> _saveProfile() async {
 
                                 // --- بطاقة الموقع الجغرافي ---
                                 Text(
-                                  "الموقع الجغرافي",
+                                  "location_on_map".tr(),
                                   style: GoogleFonts.cairo(
-                                    color: Colors.white70,
+                                    color: isDark ? Colors.white70 : Colors.black87,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -495,41 +500,45 @@ Future<void> _saveProfile() async {
                                         hasUnsavedChanges = true;
                                       });
                                   },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1B172E),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.08),
-                                      ),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                "تحديد الموقع على الخريطة",
-                                                style: GoogleFonts.cairo(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                "في حال إختلاف موقعك الحالي عن موقع التوصيل، يرجى تحديد الموقع الخاص بك بالضغط على الخريطة التالية",
-                                                textAlign: TextAlign.center,
-                                                style: GoogleFonts.cairo(
-                                                  color: Colors.white70,
-                                                  fontSize: 12,
-                                                  height: 1.4,
-                                                ),
-                                              ),
-                                            ],
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: isDark ? const Color(0xFF1E1A34).withOpacity(0.5) : Colors.white.withOpacity(0.6),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08),
                                           ),
                                         ),
+                                        child: Column(
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(16.0),
+                                              child: Column(
+                                                children: [
+                                                  Text(
+                                                    "set_location_on_map".tr(),
+                                                    style: GoogleFonts.cairo(
+                                                      color: isDark ? Colors.white : Colors.black87,
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    "location_hint".tr(),
+                                                    textAlign: TextAlign.center,
+                                                    style: GoogleFonts.cairo(
+                                                      color: isDark ? Colors.white70 : Colors.black54,
+                                                      fontSize: 12,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                         ClipRRect(
                                           borderRadius:
                                               const BorderRadius.vertical(
@@ -559,6 +568,8 @@ Future<void> _saveProfile() async {
                                     ),
                                   ),
                                 ),
+                              ),
+                                ),
 
                                 if (_locationController.text.isNotEmpty) ...[
                                   const SizedBox(height: 15),
@@ -574,7 +585,7 @@ Future<void> _saveProfile() async {
                                       Text(
                                         _locationController.text,
                                         style: GoogleFonts.poppins(
-                                          color: Colors.white,
+                                          color: isDark ? Colors.white : Colors.black87,
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -584,13 +595,14 @@ Future<void> _saveProfile() async {
                                   ),
                                 ],
                               ],
-                            ),
-                          ),
                         ),
+                      ),
+                    ),
+                  ),
+                ),
 
-                        const SizedBox(height: 40),
+                const SizedBox(height: 40),
 
-                        // --- زر الحفظ ---
                         // --- زر الحفظ ---
                         isLoading
                             ? const Center(
@@ -599,7 +611,7 @@ Future<void> _saveProfile() async {
                                 ),
                               )
                             : ShinyButton(
-                                text: "حفظ التغييرات",
+                                text: "save_changes".tr(),
                                 onPressed: _saveProfile,
                               ),
 
@@ -636,7 +648,7 @@ Future<void> _saveProfile() async {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  "تنبيه",
+                  "warning".tr(),
                   style: GoogleFonts.cairo(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -645,14 +657,14 @@ Future<void> _saveProfile() async {
               ],
             ),
             content: Text(
-              "لديك تغييرات لم يتم حفظها، هل أنت متأكد أنك تريد الخروج؟",
+              "unsaved_changes_warning".tr(),
               style: GoogleFonts.cairo(color: Colors.white, fontSize: 16),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
                 child: Text(
-                  "إلغاء",
+                  "cancel".tr(),
                   style: GoogleFonts.cairo(
                     color: Colors.white70,
                     fontWeight: FontWeight.bold,
@@ -662,7 +674,7 @@ Future<void> _saveProfile() async {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 child: Text(
-                  "تجاهل",
+                  "discard".tr(),
                   style: GoogleFonts.cairo(
                     color: Colors.redAccent,
                     fontWeight: FontWeight.bold,
@@ -683,7 +695,7 @@ Future<void> _saveProfile() async {
                   }
                 },
                 child: Text(
-                  "حفظ",
+                  "save".tr(),
                   style: GoogleFonts.cairo(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,

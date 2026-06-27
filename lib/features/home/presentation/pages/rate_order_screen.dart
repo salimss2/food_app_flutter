@@ -2,10 +2,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/widgets/custom_background.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import '../../../../providers/order_provider.dart';
 
 class RateOrderScreen extends StatefulWidget {
-  const RateOrderScreen({super.key});
+  final int orderId;
+  const RateOrderScreen({super.key, required this.orderId});
 
   @override
   State<RateOrderScreen> createState() => _RateOrderScreenState();
@@ -16,23 +20,74 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
   double driverRating = 5;
   double restaurantRating = 5;
   final TextEditingController _commentController = TextEditingController();
+  bool _isSubmitting = false;
 
   Future<void> _submitReview() async {
-    // Show thank you message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'شكراً لتقييمك! نحن نقدر ملاحظاتك 💖',
-          style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
-        ),
-        backgroundColor: Colors.green.shade700,
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (_isSubmitting) return;
 
-    // Clear navigation stack and go to home
-    context.go('/home');
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final orderProvider = context.read<OrderProvider>();
+      final (success, message) = await orderProvider.submitOrderReview(
+        widget.orderId,
+        foodRating.toInt(),
+        driverRating.toInt(),
+        restaurantRating.toInt(),
+        _commentController.text.trim().isEmpty ? null : _commentController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "تم إرسال التقييم بنجاح",
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              message,
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+            ),
+            backgroundColor: const Color(0xFFD32F2F),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.toString(),
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+            ),
+            backgroundColor: const Color(0xFFD32F2F),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -79,7 +134,7 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          "كيف كانت تجربتك؟",
+                          "how_was_your_experience".tr(),
                           style: GoogleFonts.cairo(
                             color: Colors.white,
                             fontSize: 22,
@@ -88,7 +143,7 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          "تقييمك يساعدنا على تحسين خدماتنا باستمرار",
+                          "rating_helps_improve".tr(),
                           textAlign: TextAlign.center,
                           style: GoogleFonts.cairo(
                             color: Colors.white54,
@@ -99,19 +154,19 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
 
                         // --- Rating Sections ---
                         _buildRatingSection(
-                          "تقييم الوجبات",
+                          "rate_meals".tr(),
                           foodRating,
                           (rating) => setState(() => foodRating = rating),
                         ),
                         const SizedBox(height: 20),
                         _buildRatingSection(
-                          "تقييم المندوب",
+                          "rate_driver".tr(),
                           driverRating,
                           (rating) => setState(() => driverRating = rating),
                         ),
                         const SizedBox(height: 20),
                         _buildRatingSection(
-                          "تقييم المطعم",
+                          "rate_restaurant".tr(),
                           restaurantRating,
                           (rating) => setState(() => restaurantRating = rating),
                         ),
@@ -121,7 +176,7 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: Text(
-                            "أضف تعليقاً إضافياً (اختياري)",
+                            "add_comment_optional".tr(),
                             style: GoogleFonts.cairo(
                               color: Colors.white,
                               fontSize: 14,
@@ -138,7 +193,7 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                             fontSize: 13,
                           ),
                           decoration: InputDecoration(
-                            hintText: "أخبرنا برأيك في الطلب والخدمة...",
+                            hintText: "tell_us_your_opinion".tr(),
                             hintStyle: GoogleFonts.cairo(
                               color: Colors.white30,
                               fontSize: 13,
@@ -190,7 +245,7 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _submitReview,
+                      onPressed: _isSubmitting ? null : _submitReview,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD32F2F),
                         shape: RoundedRectangleBorder(
@@ -200,14 +255,23 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                         elevation: 5,
                         shadowColor: const Color(0xFFD32F2F).withOpacity(0.5),
                       ),
-                      child: Text(
-                        "إرسال التقييم",
-                        style: GoogleFonts.cairo(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              "submit_rating".tr(),
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -252,7 +316,7 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
             ),
           ),
           Text(
-            "تقييم الطلب",
+            "rate_order".tr(),
             style: GoogleFonts.cairo(
               color: Colors.white,
               fontSize: 18,

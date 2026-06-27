@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart'; // <-- استيراد حزمة التوجيه
+import 'package:go_router/go_router.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 
 import '../../../../core/widgets/custom_background.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart'; // استيراد الـ BLoC
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -15,7 +16,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // متغيرات لحفظ حالة المفاتيح (Switch)
   bool _isNotificationEnabled = true;
 
   @override
@@ -34,13 +34,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final Widget bodyContent = Column(
       children: [
-        // --- 1. الرأس (Header) ---
+        // --- 1. Header ---
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15),
             child: Row(
               children: [
-                // زر الرجوع
                 Container(
                   decoration: BoxDecoration(
                     color: backBtnBgColor,
@@ -49,12 +48,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: IconButton(
                     icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => context.pop(), // الرجوع باستخدام go_router
+                    onPressed: () => context.pop(),
                   ),
                 ),
                 const SizedBox(width: 15),
                 Text(
-                  "الإعدادات",
+                  "settings".tr(),
                   style: GoogleFonts.cairo(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -66,61 +65,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
 
-        // --- 2. قائمة الإعدادات ---
+        // --- 2. Settings List ---
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // قسم الحساب
-                _buildSectionHeader("الحساب"),
-                _buildSettingsTile(context: context,
+                // Account section
+                _buildSectionHeader("account_section".tr()),
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.person_outline,
-                  title: "تعديل الملف الشخصي",
+                  title: "edit_profile".tr(),
                   onTap: () {
-                    // الانتقال باستخدام go_router
                     context.push('/profile');
                   },
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.lock_outline,
-                  title: "تغيير كلمة المرور",
+                  title: "change_password".tr(),
                   onTap: () {},
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.location_on_outlined,
-                  title: "العناوين المحفوظة",
+                  title: "saved_addresses".tr(),
                   onTap: () {},
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.payment_outlined,
-                  title: "طرق الدفع",
+                  title: "payment_methods".tr(),
                   onTap: () {},
                 ),
 
                 const SizedBox(height: 25),
 
-                // قسم إعدادات التطبيق
-                _buildSectionHeader("عام"),
-                _buildSettingsTile(context: context,
+                // General section
+                _buildSectionHeader("general_section".tr()),
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.notifications_none,
-                  title: "الإشعارات",
+                  title: "notifications".tr(),
                   isSwitch: true,
                   switchValue: _isNotificationEnabled,
                   onChanged: (val) {
                     setState(() => _isNotificationEnabled = val);
                   },
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.language,
-                  title: "لغة التطبيق",
-                  trailingText: "العربية", // عرض اللغة المختارة
+                  title: "app_language".tr(),
+                  trailingText: "arabic".tr(),
                   onTap: () {},
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.dark_mode_outlined,
-                  title: "الوضع الليلي",
+                  title: "dark_mode".tr(),
                   isSwitch: true,
                   switchValue: isDarkMode,
                   onChanged: (val) {
@@ -130,46 +135,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 25),
 
-                // قسم الدعم
-                _buildSectionHeader("الدعم"),
-                _buildSettingsTile(context: context,
+                // Support section
+                _buildSectionHeader("support_section".tr()),
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.chat_outlined,
-                  title: "إرسال شكوى أو استفسار",
+                  title: "send_complaint".tr(),
                   onTap: () {
                     context.push('/complaint-inquiry');
                   },
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.help_outline,
-                  title: "مركز المساعدة",
+                  title: "help_center".tr(),
                   onTap: () {},
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.privacy_tip_outlined,
-                  title: "سياسة الخصوصية",
+                  title: "privacy_policy".tr(),
                   onTap: () {
-                    // الانتقال باستخدام go_router
                     context.push('/privacy-policy');
                   },
                 ),
-                _buildSettingsTile(context: context,
+                _buildSettingsTile(
+                  context: context,
                   icon: Icons.info_outline,
-                  title: "حول التطبيق",
+                  title: "about_app".tr(),
                   onTap: () {
-                    // الانتقال باستخدام go_router
                     context.push('/about-app');
                   },
                 ),
 
                 const SizedBox(height: 40),
 
-                // زر تسجيل الخروج
+                // Logout button
                 _buildLogoutButton(context),
 
                 const SizedBox(height: 20),
                 Center(
                   child: Text(
-                    "الإصدار 1.0.0",
+                    "app_version".tr(),
                     style: GoogleFonts.cairo(
                       color: versionTextColor,
                       fontSize: 12,
@@ -186,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       body: Directionality(
-        textDirection: TextDirection.rtl, // توجيه الصفحة للعربية
+        textDirection: TextDirection.rtl,
         child: isDarkMode
             ? CustomBackground(child: bodyContent)
             : Container(
@@ -202,16 +209,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // --- أدوات المساعدة (Helper Widgets) ---
+  // --- Helper Widgets ---
 
-  // عنوان القسم
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10, right: 5),
       child: Text(
         title,
         style: GoogleFonts.cairo(
-          color: const Color(0xFF0F55E8), // اللون الأزرق الخاص بالبراند
+          color: const Color(0xFF0F55E8),
           fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
@@ -219,7 +225,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // عنصر في القائمة (Tile)
   Widget _buildSettingsTile({
     required BuildContext context,
     required IconData icon,
@@ -253,13 +258,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isSwitch ? null : onTap, // تعطيل الضغط إذا كان Switch
+          onTap: isSwitch ? null : onTap,
           borderRadius: BorderRadius.circular(15),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Row(
               children: [
-                // الأيقونة
+                // Icon
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -272,7 +277,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(width: 15),
 
-                // العنوان
+                // Title
                 Expanded(
                   child: Text(
                     title,
@@ -284,7 +289,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
 
-                // الجزء الأخير (سهم، نص، أو مفتاح)
+                // Trailing (arrow, text, or switch)
                 if (isSwitch)
                   Switch(
                     value: switchValue,
@@ -332,7 +337,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // زر تسجيل الخروج
+  // Logout button
   Widget _buildLogoutButton(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final Color redIconColor = isDarkMode
@@ -360,16 +365,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: btnBgColor,
         borderRadius: BorderRadius.circular(15),
-        // تدرج لوني أحمر خفيف للإشارة للخطر/الخروج
         gradient: LinearGradient(colors: gradientColors),
         border: Border.all(color: borderColor),
       ),
       child: TextButton(
         onPressed: () {
-          // 1. إرسال حدث تسجيل الخروج للـ BLoC
           context.read<AuthBloc>().add(LogoutRequested());
-
-          // 2. العودة لشاشة الدخول ومسح ما سبق باستخدام go_router
           context.go('/login');
         },
         child: Row(
@@ -378,7 +379,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Icon(Icons.logout, color: redIconColor),
             const SizedBox(width: 10),
             Text(
-              "تسجيل الخروج",
+              "logout".tr(),
               style: GoogleFonts.cairo(
                 color: redIconColor,
                 fontSize: 16,

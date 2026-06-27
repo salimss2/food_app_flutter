@@ -21,7 +21,12 @@ class NotificationsProvider extends ChangeNotifier {
       final response = await _dio.get(Endpoints.getNotifications);
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data;
-        final notificationsData = data['data'] ?? data['notifications'] ?? data;
+        var notificationsData = data['data'] ?? data['notifications'] ?? data;
+        
+        // Unwrap Laravel pagination object if present
+        if (notificationsData is Map<String, dynamic> && notificationsData.containsKey('data')) {
+          notificationsData = notificationsData['data'];
+        }
         
         if (notificationsData is List) {
           _notifications = List<Map<String, dynamic>>.from(notificationsData);

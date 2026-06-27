@@ -2,9 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/global_exit_wrapper.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 
 class OrderStatusScreen extends StatelessWidget {
   final Map<String, dynamic> orderData;
@@ -45,12 +47,12 @@ class OrderStatusScreen extends StatelessWidget {
     final raw = orderData['payment_method']?.toString();
     switch (raw) {
       case 'wallet':
-        return 'محفظة إلكترونية';
+        return 'e_wallet'.tr();
       case 'balance':
-        return 'رصيد الحساب';
+        return 'account_balance'.tr();
       case 'cash':
       default:
-        return 'نقدي';
+        return 'cash'.tr();
     }
   }
 
@@ -67,21 +69,21 @@ class OrderStatusScreen extends StatelessWidget {
   String get _restaurantName {
     return orderData['restaurant']?['name']?.toString() ??
         orderData['restaurant_name']?.toString() ??
-        'غير متوفر';
+        'not_available'.tr();
   }
 
   /// Restaurant address with fallback.
   String get _restaurantAddress {
     return orderData['restaurant']?['address']?.toString() ??
         orderData['restaurant_address']?.toString() ??
-        'غير متوفر';
+        'not_available'.tr();
   }
 
   /// Delivery / customer address with fallback.
   String get _deliveryAddress {
     return orderData['delivery_address']?.toString() ??
         orderData['address']?.toString() ??
-        'غير متوفر';
+        'not_available'.tr();
   }
 
   /// Driver map, or null if not yet assigned.
@@ -97,15 +99,27 @@ class OrderStatusScreen extends StatelessWidget {
       double.tryParse(orderData['total_amount']?.toString() ?? '') ??
       0.0;
 
-  /// Delivery fee (server field: "delivery_fee"). Defaults to 500.
+  /// Delivery fee (server field: "delivery_fee"). Defaults to 0.0.
   double get _deliveryFee =>
-      double.tryParse(orderData['delivery_fee']?.toString() ?? '') ?? 500.0;
+      double.tryParse(orderData['delivery_fee']?.toString() ?? '') ?? 0.0;
+
+  /// Additions (e.g. extra items or addons).
+  double get _additions =>
+      double.tryParse(orderData['additions']?.toString() ?? '') ?? 0.0;
+
+  /// Discount.
+  double get _discount =>
+      double.tryParse(orderData['discount']?.toString() ?? '') ?? 0.0;
+
+  /// VAT / Tax.
+  double get _vatTax =>
+      double.tryParse(orderData['vat_tax']?.toString() ?? orderData['tax']?.toString() ?? '') ?? 0.0;
 
   /// Subtotal – use explicit field if present, else derive from total − fee.
   double get _subtotal {
     final explicit = double.tryParse(orderData['subtotal']?.toString() ?? '');
     if (explicit != null) return explicit;
-    final derived = _total - _deliveryFee;
+    final derived = _total - _deliveryFee + _discount - _additions - _vatTax;
     return derived > 0 ? derived : _total;
   }
 
@@ -135,25 +149,25 @@ class OrderStatusScreen extends StatelessWidget {
                         children: [
                           _buildHeader(),
                           const SizedBox(height: 25),
-                          _buildSectionTitle("معلومات عامة"),
+                          _buildSectionTitle("general_info".tr()),
                           _buildGeneralInfoCard(),
                           const SizedBox(height: 20),
-                          _buildSectionTitle("معلومات العنصر"),
-                          _buildItemInfoCard(),
+                          _buildSectionTitle("item_info".tr()),
+                          _buildItemInfoCard(context),
                           const SizedBox(height: 20),
-                          _buildSectionTitle("تفاصيل رجل التسليم"),
+                          _buildSectionTitle("delivery_man_details".tr()),
                           _buildDeliveryGuyCard(),
                           const SizedBox(height: 20),
-                          _buildSectionTitle("تفاصيل التسليم"),
+                          _buildSectionTitle("delivery_details".tr()),
                           _buildDeliveryDetailsCard(),
                           const SizedBox(height: 20),
-                          _buildSectionTitle("تفاصيل المطعم"),
+                          _buildSectionTitle("restaurant_details".tr()),
                           _buildRestaurantDetailsCard(),
                           const SizedBox(height: 20),
-                          _buildSectionTitle("طريقة الدفع"),
+                          _buildSectionTitle("payment_method_label".tr()),
                           _buildPaymentMethodCard(),
                           const SizedBox(height: 20),
-                          _buildSectionTitle("ملخص الطلب"),
+                          _buildSectionTitle("order_summary".tr()),
                           _buildOrderSummaryCard(),
                           const SizedBox(height: 20),
                           _buildSupportMessageButton(),
@@ -207,7 +221,7 @@ class OrderStatusScreen extends StatelessWidget {
             ),
           ),
           Text(
-            "تفاصيل الطلب",
+            "order_details_title".tr(),
             style: GoogleFonts.cairo(
               color: Colors.white,
               fontSize: 18,
@@ -304,7 +318,7 @@ class OrderStatusScreen extends StatelessWidget {
         ),
         const SizedBox(height: 15),
         Text(
-          "سيتم تسليم طعامك في الداخل",
+          "food_delivered_in".tr(),
           style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
         ),
         const SizedBox(height: 5),
@@ -319,7 +333,7 @@ class OrderStatusScreen extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          "30 - 45 دقيقة",
+          "delivery_time_estimate".tr(),
           style: GoogleFonts.poppins(color: Colors.white54, fontSize: 14),
         ),
       ],
@@ -336,11 +350,11 @@ class OrderStatusScreen extends StatelessWidget {
       child: Column(
         children: [
           // Order ID
-          _buildInfoRow("رقم الطلب", _orderId),
+          _buildInfoRow("order_id".tr(), _orderId),
 
           // Date + Time
           _buildInfoRow(
-            "تاريخ الطلب",
+            "order_date".tr(),
             _dateString,
             trailing: Text(
               _timeString,
@@ -350,7 +364,7 @@ class OrderStatusScreen extends StatelessWidget {
 
           // Payment method badge
           _buildInfoRow(
-            "طريقة الدفع",
+            "payment_method_label".tr(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -370,19 +384,21 @@ class OrderStatusScreen extends StatelessWidget {
 
           // Item count + status
           _buildInfoRow(
-            "عدد المنتجات: $itemCount",
+            "number_of_items_label".tr(namedArgs: {'count': itemCount.toString()}),
             Row(
               children: [
                 Text(
-                  "مؤكد",
+                  (orderData['status']?.toString() ?? 'pending').tr(),
                   style: GoogleFonts.cairo(color: Colors.white, fontSize: 13),
                 ),
                 const SizedBox(width: 5),
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
+                  decoration: BoxDecoration(
+                    color: (orderData['status'] == 'completed' || orderData['status'] == 'delivered') 
+                        ? Colors.green 
+                        : const Color(0xFFE58B29),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -390,7 +406,7 @@ class OrderStatusScreen extends StatelessWidget {
             ),
           ),
 
-          _buildInfoRow("أدوات المائدة:", "لا"),
+          _buildInfoRow("cutlery".tr(), "no".tr()),
         ],
       ),
     );
@@ -399,14 +415,14 @@ class OrderStatusScreen extends StatelessWidget {
   // ===========================================================================
   // 3. Item Info Card — maps over JSON order items (not CartItem models)
   // ===========================================================================
-  Widget _buildItemInfoCard() {
+  Widget _buildItemInfoCard(BuildContext context) {
     final items = _items;
 
     if (items.isEmpty) {
       return _buildCard(
         child: Center(
           child: Text(
-            "لا توجد وجبات",
+            "no_meals".tr(),
             style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
           ),
         ),
@@ -419,7 +435,7 @@ class OrderStatusScreen extends StatelessWidget {
           // Safely extract fields from the JSON item
           final meal = item['meal'] as Map<String, dynamic>?;
           final String name =
-              meal?['name']?.toString() ?? item['name']?.toString() ?? 'وجبة';
+              meal?['name']?.toString() ?? item['name']?.toString() ?? 'meal_placeholder'.tr();
           final String? imageUrl =
               meal?['image_url']?.toString() ?? item['image_url']?.toString();
           final int quantity =
@@ -472,7 +488,9 @@ class OrderStatusScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "كمية: $quantity",
+                            context.locale.languageCode == 'ar'
+                                ? "الكمية: $quantity"
+                                : "Qty: $quantity",
                             style: GoogleFonts.cairo(
                               color: Colors.white70,
                               fontSize: 13,
@@ -489,7 +507,7 @@ class OrderStatusScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                " ر.ي",
+                                " " + "currency".tr(),
                                 style: GoogleFonts.cairo(
                                   color: Colors.white54,
                                   fontSize: 12,
@@ -557,7 +575,7 @@ class OrderStatusScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "جاري تعيين مندوب التوصيل...",
+                    "assigning_delivery_man".tr(),
                     style: GoogleFonts.cairo(
                       color: Colors.white,
                       fontSize: 14,
@@ -566,7 +584,7 @@ class OrderStatusScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "سيتم إعلامك عند تعيين المندوب",
+                    "notified_when_assigned".tr(),
                     style: GoogleFonts.cairo(
                       color: Colors.white54,
                       fontSize: 12,
@@ -582,7 +600,7 @@ class OrderStatusScreen extends StatelessWidget {
 
     // Driver assigned — show real data
     final String driverName =
-        driver['name']?.toString() ?? 'مندوب التوصيل';
+        driver['name']?.toString() ?? 'delivery_man'.tr();
     final String driverVehicle =
         driver['vehicle']?.toString() ?? driver['phone']?.toString() ?? '';
     final double driverRating =
@@ -708,7 +726,7 @@ class OrderStatusScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "من المتجر",
+                      "from_store".tr(),
                       style: GoogleFonts.cairo(
                         color: Colors.white,
                         fontSize: 14,
@@ -755,7 +773,7 @@ class OrderStatusScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "إلى",
+                      "to_label".tr(),
                       style: GoogleFonts.cairo(
                         color: Colors.white,
                         fontSize: 14,
@@ -792,8 +810,16 @@ class OrderStatusScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white12,
               borderRadius: BorderRadius.circular(10),
+              image: orderData['restaurant']?['image_url'] != null
+                  ? DecorationImage(
+                      image: NetworkImage(orderData['restaurant']['image_url']),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
-            child: const Icon(Icons.restaurant, color: Colors.white54),
+            child: orderData['restaurant']?['image_url'] == null 
+                ? const Icon(Icons.restaurant, color: Colors.white54)
+                : null,
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -837,7 +863,7 @@ class OrderStatusScreen extends StatelessWidget {
   // 7. Payment Method Card
   // ===========================================================================
   Widget _buildPaymentMethodCard() {
-    final isCash = _paymentLabel == 'نقدي';
+    final isCash = _paymentLabel == 'cash'.tr();
     return _buildCard(
       child: Row(
         children: [
@@ -863,19 +889,19 @@ class OrderStatusScreen extends StatelessWidget {
     return _buildCard(
       child: Column(
         children: [
-          _buildSummaryRow("سعر السلعة", _subtotal.toStringAsFixed(0)),
-          _buildSummaryRow("إضافات", "0"),
+          _buildSummaryRow("item_price".tr(), _subtotal.toStringAsFixed(0)),
+          _buildSummaryRow("additions".tr(), _additions.toStringAsFixed(0)),
           Divider(color: Colors.white.withOpacity(0.1), height: 20),
-          _buildSummaryRow("المجموع الفرعي", _subtotal.toStringAsFixed(0)),
-          _buildSummaryRow("تخفيض", "0", isNegative: true),
-          _buildSummaryRow("ضريبة القيمة المضافة/الضريبة", "0"),
-          _buildSummaryRow("رسوم التوصيل", _deliveryFee.toStringAsFixed(0)),
+          _buildSummaryRow("subtotal".tr(), _subtotal.toStringAsFixed(0)),
+          _buildSummaryRow("discount".tr(), _discount.toStringAsFixed(0), isNegative: true),
+          _buildSummaryRow("vat_tax".tr(), _vatTax.toStringAsFixed(0)),
+          _buildSummaryRow("delivery_fee_label".tr(), _deliveryFee.toStringAsFixed(0)),
           Divider(color: Colors.white.withOpacity(0.1), height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "المبلغ الإجمالي",
+                "grand_total".tr(),
                 style: GoogleFonts.cairo(
                   color: const Color(0xFFFF416C),
                   fontSize: 16,
@@ -897,7 +923,7 @@ class OrderStatusScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 2.0),
                     child: Text(
-                      "ر.ي",
+                      "currency".tr(),
                       style: GoogleFonts.cairo(
                         color: const Color(0xFFFF416C),
                         fontSize: 12,
@@ -930,7 +956,7 @@ class OrderStatusScreen extends StatelessWidget {
           ),
           if (isFree)
             Text(
-              "حر",
+              "free".tr(),
               style: GoogleFonts.cairo(
                 color: const Color(0xFFFF416C),
                 fontSize: 13,
@@ -952,7 +978,7 @@ class OrderStatusScreen extends StatelessWidget {
                       GoogleFonts.poppins(color: Colors.white, fontSize: 13),
                 ),
                 Text(
-                  " ر.ي",
+                  " " + "currency".tr(),
                   style: GoogleFonts.cairo(color: Colors.white54, fontSize: 11),
                 ),
               ],
@@ -975,7 +1001,7 @@ class OrderStatusScreen extends StatelessWidget {
           size: 20,
         ),
         label: Text(
-          "رسالة إلى Quiek",
+          "message_to_quiek".tr(),
           style: GoogleFonts.cairo(
             color: const Color(0xFF0F55E8),
             fontSize: 14,
@@ -1010,7 +1036,7 @@ class OrderStatusScreen extends StatelessWidget {
           ),
           child: Center(
             child: Text(
-              "تابع الطلب",
+              "track_order".tr(),
               style: GoogleFonts.cairo(
                 color: Colors.white,
                 fontSize: 16,

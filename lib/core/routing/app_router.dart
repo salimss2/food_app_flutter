@@ -157,8 +157,11 @@ abstract class AppRouter {
       GoRoute(
         path: '/order-status',
         builder: (context, state) {
-          final orderData = state.extra as Map<String, dynamic>? ?? {};
-          return OrderStatusScreen(orderData: orderData);
+          // 🌟 هنا نقوم باستقبال البيانات المبعوثة من الـ extra
+          final incomingData = state.extra as Map<String, dynamic>? ?? {};
+
+          // ثم نمررها للشاشة
+          return OrderStatusScreen(orderData: incomingData);
         },
       ),
       GoRoute(
@@ -170,7 +173,20 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: '/rate-order',
-        builder: (context, state) => const RateOrderScreen(),
+        builder: (context, state) {
+          final extra = state.extra;
+          int orderId = 0;
+          if (extra is int) {
+            orderId = extra;
+          } else if (extra is Map<String, dynamic>) {
+            orderId = extra['id'] is int
+                ? extra['id'] as int
+                : int.tryParse(extra['id']?.toString() ?? '') ?? 0;
+          } else if (extra is String) {
+            orderId = int.tryParse(extra) ?? 0;
+          }
+          return RateOrderScreen(orderId: orderId);
+        },
       ),
       GoRoute(
         path: '/notifications',

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -105,7 +106,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
         style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
         textAlign: TextAlign.right,
         decoration: InputDecoration(
-          hintText: "عن ماذا تبحث؟",
+          hintText: "what_are_you_looking_for".tr(),
           hintStyle: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54),
           prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.black54),
           suffixIcon: _searchQuery.isNotEmpty
@@ -131,10 +132,10 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildCategoryItem("مشاريع منزلية", Icons.home_rounded, false),
-        _buildCategoryItem("الأقرب", Icons.map_rounded, false),
-        _buildCategoryItem("الجديدة", Icons.new_releases, true),
-        _buildCategoryItem("المفضلة", Icons.favorite_rounded, false),
+        _buildCategoryItem("home_projects".tr(), Icons.home_rounded, false),
+        _buildCategoryItem("nearest".tr(), Icons.map_rounded, false),
+        _buildCategoryItem("newest".tr(), Icons.new_releases, true),
+        _buildCategoryItem("favorite".tr(), Icons.favorite_rounded, false),
       ],
     );
   }
@@ -193,7 +194,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
         if (allRestaurants.isEmpty) {
           return Center(
             child: Text(
-              "لا توجد مطاعم",
+              "no_restaurants".tr(),
               style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
             ),
           );
@@ -208,7 +209,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
         if (displayedRestaurants.isEmpty) {
           return Center(
             child: Text(
-              "لا توجد مطاعم مطابقة لبحثك 🍽️",
+              "no_matching_restaurants".tr(),
               style: GoogleFonts.cairo(color: isDark ? Colors.white54 : Colors.black54, fontSize: 16),
             ),
           );
@@ -220,8 +221,8 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
           itemCount: displayedRestaurants.length,
           itemBuilder: (context, index) {
             final restaurant = displayedRestaurants[index];
-            final String name = restaurant.name.isNotEmpty ? restaurant.name : 'اسم المطعم';
-            final String desc = "مطعم $name";
+            final String name = restaurant.name.isNotEmpty ? restaurant.name : 'restaurant_name'.tr();
+            final String desc = "restaurant_desc".tr(namedArgs: {'name': name});
             final String image = restaurant.imageUrl ??
                 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80';
             final double rating = restaurant.rating;
@@ -303,7 +304,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "${parsedDistance.toStringAsFixed(1)} كيلو",
+                      "${parsedDistance.toStringAsFixed(1)} " + "km".tr(),
                       style: GoogleFonts.cairo(
                         color: isDark ? Colors.white70 : Colors.black87,
                         fontSize: 11,
@@ -401,7 +402,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
                           ),
                         ),
                         child: Text(
-                          "مفتوح",
+                          "open".tr(),
                           style: GoogleFonts.cairo(
                             color: const Color(0xFFE69B35),
                             fontSize: 10,
@@ -443,7 +444,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 40),
           child: Text(
-            "حدث خطأ أثناء تحميل المطاعم",
+            "error_loading_restaurants".tr(),
             style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87),
           ),
         ),
@@ -491,31 +492,31 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
                   _navItem(
                     selectedIcon: Icons.manage_search,
                     unselectedIcon: Icons.manage_search_outlined,
-                    label: "البحث",
+                    label: "search".tr(),
                     index: 1,
                   ),
                   _navItem(
                     selectedIcon: Icons.shopping_cart,
                     unselectedIcon: Icons.shopping_cart_outlined,
-                    label: "السلة",
+                    label: "cart".tr(),
                     index: 2,
                   ),
                   _navItem(
                     selectedIcon: Icons.home,
                     unselectedIcon: Icons.home_outlined,
-                    label: "الرئيسية",
+                    label: "home".tr(),
                     index: 0,
                   ),
                   _navItem(
                     selectedIcon: Icons.receipt,
                     unselectedIcon: Icons.receipt_outlined,
-                    label: "طلباتي",
+                    label: "my_orders".tr(),
                     index: 3,
                   ),
                   _navItem(
                     selectedIcon: Icons.person,
                     unselectedIcon: Icons.person_outline,
-                    label: "حسابي",
+                    label: "my_account".tr(),
                     index: 4,
                   ),
                 ],

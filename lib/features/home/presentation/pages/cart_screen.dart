@@ -4,13 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Consumer, Provider;
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
 
 import '../../../../providers/restaurant_provider.dart';
-import '../../../../models/restaurant_model.dart';
-
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
@@ -24,17 +23,43 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     super.initState();
     Future.microtask(() {
       final asyncRestaurants = ref.read(restaurantProvider);
-      
+
       List<Map<String, dynamic>> mappedRestaurants = [];
-      
+
       asyncRestaurants.whenData((restaurants) {
         for (var r in restaurants) {
           mappedRestaurants.add({
             'id': r.id,
             'name': r.name,
             'menu': [
-              ...r.meals.map((m) => {'id': m.id, 'name': m.name, 'imageUrl': m.imageUrl}),
-              ...r.menus.expand((menu) => menu.meals).map((m) => {'id': m.id, 'name': m.name, 'imageUrl': m.imageUrl}),
+              ...r.meals.map(
+                (m) => {
+                  'id': m.id, 
+                  'name': m.name, 
+                  'imageUrl': m.imageUrl,
+                  'price': m.price,
+                  'price_after_discount': m.priceAfterDiscount,
+                  'discount_type': m.discountType,
+                  'discount_value': m.discountValue,
+                  'discount_start': m.discountStart?.toIso8601String(),
+                  'discount_end': m.discountEnd?.toIso8601String(),
+                },
+              ),
+              ...r.menus
+                  .expand((menu) => menu.meals)
+                  .map(
+                    (m) => {
+                      'id': m.id, 
+                      'name': m.name, 
+                      'imageUrl': m.imageUrl,
+                      'price': m.price,
+                      'price_after_discount': m.priceAfterDiscount,
+                      'discount_type': m.discountType,
+                      'discount_value': m.discountValue,
+                      'discount_start': m.discountStart?.toIso8601String(),
+                      'discount_end': m.discountEnd?.toIso8601String(),
+                    },
+                  ),
             ],
           });
         }
@@ -62,7 +87,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     builder: (context, cart, _) {
                       if (cart.isLoading) {
                         return const Center(
-                          child: CircularProgressIndicator(color: Color(0xFFED922A)),
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFED922A),
+                          ),
                         );
                       }
 
@@ -78,7 +105,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                "السلة فارغة 🛒",
+                                "cart_empty".tr(),
                                 style: GoogleFonts.cairo(
                                   color: Colors.white54,
                                   fontSize: 20,
@@ -87,7 +114,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "أضف وجباتك المفضلة الآن",
+                                "cart_empty_subtitle".tr(),
                                 style: GoogleFonts.cairo(
                                   color: Colors.white38,
                                   fontSize: 14,
@@ -169,7 +196,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
           // Title
           Text(
-            "سلة المشتريات",
+            "cart_title".tr(),
             style: GoogleFonts.cairo(
               color: Colors.white,
               fontSize: 18,
@@ -252,20 +279,27 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 topRight: Radius.circular(16),
                 bottomRight: Radius.circular(16),
               ),
-              child: Image.network(
-                item.imageUrl,
-                width: 100,
-                height: 100,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 100,
-                    height: 100,
-                    color: Colors.white12,
-                    child: const Icon(Icons.fastfood, color: Colors.white54),
-                  );
-                },
-              ),
+              child: item.imageUrl.isNotEmpty
+                  ? Image.network(
+                      item.imageUrl,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 100,
+                          height: 100,
+                          color: Colors.white12,
+                          child: const Icon(Icons.fastfood, color: Colors.white54),
+                        );
+                      },
+                    )
+                  : Container(
+                      width: 100,
+                      height: 100,
+                      color: Colors.white12,
+                      child: const Icon(Icons.fastfood, color: Colors.white54),
+                    ),
             ),
             const SizedBox(width: 12),
 
@@ -277,24 +311,73 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      item.name,
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.variantName != null 
+                                ? '${item.name} (${item.variantName})'
+                                : (item.name.isNotEmpty 
+                                    ? item.name 
+                                    : (item.type == 'combo_offer' ? 'combo_offer'.tr() : 'meal'.tr())),
+                            style: GoogleFonts.cairo(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (!item.isRestaurantOpen)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Colors.red.withOpacity(0.5),
+                              ),
+                            ),
+                            child: Text(
+                              "closed".tr(),
+                              style: GoogleFonts.cairo(
+                                color: Colors.red,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 5),
-                    Text(
-                      "${item.price.toStringAsFixed(0)} ر.ي",
-                      style: GoogleFonts.cairo(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        if (item.originalPrice != null && item.originalPrice! > item.price) ...[
+                          Text(
+                            "${item.originalPrice!.toStringAsFixed(0)}",
+                            style: GoogleFonts.cairo(
+                              color: Colors.white38,
+                              fontSize: 11,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          "${item.price.toStringAsFixed(0)} ${'currency'.tr()}",
+                          style: GoogleFonts.cairo(
+                            color: (item.originalPrice != null && item.originalPrice! > item.price)
+                                ? const Color(0xFFFF5555)
+                                : Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                     if (item.addons.isNotEmpty)
                       Text(
@@ -363,7 +446,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   // Order Summary & Checkout Button
   // ===========================================================================
   Widget _buildOrderSummary(BuildContext context, CartProvider cart) {
-    const double deliveryFee = 500;
+    const double deliveryFee = 0.0; // Dynamic fee is calculated on Checkout Screen
     final double subtotal = cart.totalPrice;
     final double grandTotal = subtotal + deliveryFee;
 
@@ -388,11 +471,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "الإجمالي",
+                "subtotal".tr(),
                 style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
               ),
               Text(
-                "${subtotal.toStringAsFixed(0)} ر.ي",
+                "${subtotal.toStringAsFixed(0)} ${'currency'.tr()}",
                 style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
               ),
             ],
@@ -404,12 +487,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "التوصيل",
+                "delivery".tr(),
                 style: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
               ),
               Text(
-                "${deliveryFee.toStringAsFixed(0)} ر.ي",
-                style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+                "calculated_at_checkout".tr(),
+                style: GoogleFonts.cairo(color: Colors.white70, fontSize: 11),
               ),
             ],
           ),
@@ -424,7 +507,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "الإجمالي الكلي",
+                "grand_total".tr(),
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontSize: 16,
@@ -432,7 +515,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ),
               ),
               Text(
-                "${grandTotal.toStringAsFixed(0)} ر.ي",
+                "${grandTotal.toStringAsFixed(0)} ${'currency'.tr()}",
                 style: GoogleFonts.poppins(
                   color: const Color(0xFF0F55E8),
                   fontSize: 20,
@@ -465,12 +548,45 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  context.push('/checkout');
+                  final closedItems = cart.items.where((item) => !item.isRestaurantOpen).toList();
+                  if (closedItems.isNotEmpty) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: const Color(0xFF1E1A34),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        title: Text(
+                          "warning".tr(),
+                          style: GoogleFonts.cairo(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        content: Text(
+                          "restaurant_closed_error".tr(),
+                          style: GoogleFonts.cairo(color: Colors.white70),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text(
+                              "close".tr(),
+                              style: GoogleFonts.cairo(color: const Color(0xFF0F55E8)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    context.push('/checkout');
+                  }
                 },
                 borderRadius: BorderRadius.circular(15),
                 child: Center(
                   child: Text(
-                    "متابعة للدفع",
+                    "proceed_to_checkout".tr(),
                     style: GoogleFonts.cairo(
                       color: Colors.white,
                       fontSize: 16,

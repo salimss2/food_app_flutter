@@ -21,7 +21,10 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   bool isLoading = false;
   // إنشاء 4 وحدات تحكم للنصوص و 4 عقد تركيز (FocusNodes)
-  final List<TextEditingController> _controllers = List.generate(4, (index) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    4,
+    (index) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(4, (index) => FocusNode());
 
   @override
@@ -39,7 +42,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void _onVerifyPressed() async {
     // تجميع الكود من الحقول الأربعة
     String code = _controllers.map((c) => c.text).join();
-    
+
     if (code.length == 4) {
       setState(() {
         isLoading = true;
@@ -47,11 +50,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
       try {
         final dioClient = DioClient();
+        final String fullUrl = Endpoints.baseUrl + Endpoints.verifyCode;
         final response = await dioClient.dio.post(
-          Endpoints.verifyCode,
+          fullUrl,
           data: {
-            'email': widget.email,
-            'code': code,
+            'email': widget.email.trim(), // 👉 إضافة trim لحذف أي مسافات زائدة
+            'otp_code': code, // 👉 الأغلب أن لارافل ينتظر الكلمة otp وليس code
+            // 'code': code, // إذا كان لارافل فعلاً ينتظر كلمة code، قم بتفعيل هذا السطر واحذف السطر الذي قبله
           },
         );
 
@@ -67,11 +72,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
           }
         }
       } on DioException catch (e) {
+        // 👉 أمر هام جداً لكشف الخطأ الحقيقي من السيرفر في الكونسول
+        print("========== 🚨 خطأ السيرفر ==========");
+        print(e.response?.data);
+        print("====================================");
+
         if (mounted) {
           String errorMessage = 'الرمز غير صحيح';
+
           if (e.response?.data != null && e.response?.data is Map) {
+            // محاولة جلب رسالة الخطأ من لارافل سواء كانت في message أو errors
             errorMessage = e.response?.data['message'] ?? errorMessage;
           }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMessage),
@@ -88,7 +101,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the full 4-digit code'), backgroundColor: Colors.redAccent),
+        const SnackBar(
+          content: Text('Please enter the full 4-digit code'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -102,23 +118,28 @@ class _VerificationScreenState extends State<VerificationScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
                       // --- زر الرجوع ---
                       SafeArea(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24.0,
+                            vertical: 10,
+                          ),
                           child: Align(
                             alignment: Alignment.topLeft,
                             child: CircleAvatar(
                               backgroundColor: Colors.white.withOpacity(0.1),
                               child: IconButton(
-                                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                                onPressed: () => context.pop(), // الرجوع باستخدام go_router
+                                icon: const Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () =>
+                                    context.pop(), // الرجوع باستخدام go_router
                               ),
                             ),
                           ),
@@ -126,7 +147,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
 
                       const SizedBox(height: 10),
-                      
+
                       Text(
                         "Verification",
                         style: GoogleFonts.poppins(
@@ -135,18 +156,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           color: Colors.white,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 10),
-                      
+
                       Text(
                         "We have sent a code to your email",
-                        style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14),
+                        style: GoogleFonts.poppins(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
                       ),
                       Text(
-                        widget.email.isNotEmpty ? widget.email : "example@gmail.com",
-                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        widget.email.isNotEmpty
+                            ? widget.email
+                            : "example@gmail.com",
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      
+
                       const Spacer(flex: 1),
                       const SizedBox(height: 20),
 
@@ -169,7 +199,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                               color: Colors.black.withOpacity(0.2),
                               blurRadius: 20,
                               offset: const Offset(0, -5),
-                            )
+                            ),
                           ],
                         ),
                         child: Column(
@@ -178,18 +208,24 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             // --- صف المربعات (OTP Row) ---
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(4, (index) => _buildOTPField(context, index)),
+                              children: List.generate(
+                                4,
+                                (index) => _buildOTPField(context, index),
+                              ),
                             ),
-                            
+
                             const SizedBox(height: 30),
-                            
+
                             // نص إعادة الإرسال
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   "Didn't receive code? ",
-                                  style: GoogleFonts.poppins(color: Colors.white54, fontSize: 13),
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white54,
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 GestureDetector(
                                   onTap: () {
@@ -198,7 +234,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                   child: Text(
                                     "Resend",
                                     style: GoogleFonts.poppins(
-                                      color: Colors.white, 
+                                      color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       decoration: TextDecoration.underline,
                                       decorationColor: Colors.white,
@@ -209,7 +245,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             ),
 
                             const SizedBox(height: 30),
-                            
+
                             // زر التحقق
                             ShinyButton(
                               text: "VERIFY",
@@ -218,7 +254,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             ),
 
                             // مسافة أمان للكيبورد
-                            SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 ? 20 : 10),
+                            SizedBox(
+                              height:
+                                  MediaQuery.of(context).viewInsets.bottom > 0
+                                  ? 20
+                                  : 10,
+                            ),
                           ],
                         ),
                       ),
@@ -257,9 +298,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
           textAlign: TextAlign.center,
           maxLength: 1, // يسمح برقم واحد فقط
           style: GoogleFonts.poppins(
-            fontSize: 24, 
-            fontWeight: FontWeight.bold, 
-            color: Colors.white
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
           decoration: const InputDecoration(
             counterText: "", // لإخفاء عداد الحروف الصغير (0/1)
