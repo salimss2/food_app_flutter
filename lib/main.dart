@@ -20,6 +20,7 @@ import 'providers/order_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/offers_provider.dart';
+import 'providers/support_provider.dart';
 import 'core/services/firebase_messaging_service.dart';
 
 void main() async {
@@ -87,6 +88,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<OffersProvider>(
           create: (_) => OffersProvider()..fetchOffers(),
+        ),
+        ChangeNotifierProvider<SupportProvider>(
+          create: (_) => SupportProvider(),
         ),
       ],
       child: Builder(

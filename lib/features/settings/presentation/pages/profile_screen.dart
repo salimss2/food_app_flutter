@@ -582,14 +582,18 @@ Future<void> _saveProfile() async {
                                         size: 18,
                                       ),
                                       const SizedBox(width: 8),
-                                      Text(
-                                        _locationController.text,
-                                        style: GoogleFonts.poppins(
-                                          color: isDark ? Colors.white : Colors.black87,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
+                                      Expanded(
+                                        child: Text(
+                                          _locationController.text,
+                                          style: GoogleFonts.poppins(
+                                            color: isDark ? Colors.white : Colors.black87,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textDirection: TextDirection.ltr,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        textDirection: TextDirection.ltr,
                                       ),
                                     ],
                                   ),

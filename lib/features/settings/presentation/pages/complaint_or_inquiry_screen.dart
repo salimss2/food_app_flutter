@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+import 'package:provider/provider.dart';
+import '../../../../providers/support_provider.dart';
 import '../../../../core/widgets/custom_background.dart';
-import '../../../../core/api/dio_client.dart';
-import '../../../../core/api/endpoints.dart';
 
 class ComplaintOrInquiryScreen extends StatefulWidget {
   const ComplaintOrInquiryScreen({super.key});
@@ -33,8 +33,12 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
     final subject = _subjectController.text.trim();
     final details = _detailsController.text.trim();
 
-    if (subject.isEmpty || details.isEmpty) {
-      _showSnackBar('الرجاء تعبئة جميع الحقول', Colors.red.shade700);
+    if (subject.length < 3) {
+      _showSnackBar('يجب أن يتكون الموضوع من 3 أحرف على الأقل', Colors.red.shade700);
+      return;
+    }
+    if (details.length < 5) {
+      _showSnackBar('يجب أن تتكون الرسالة من 5 أحرف على الأقل', Colors.red.shade700);
       return;
     }
 
@@ -43,31 +47,27 @@ class _ComplaintOrInquiryScreenState extends State<ComplaintOrInquiryScreen> {
     });
 
     try {
-      final dio = DioClient().dio;
-      final response = await dio.post(
-        Endpoints.sendSupportMessage,
-        data: {
-          'type': selectedType, // 🌟 سيتم إرسال inquiry أو complaint
-          'subject': subject,
-          'details': details,
-        },
+      final supportProvider = context.read<SupportProvider>();
+      final (success, message) = await supportProvider.submitTicket(
+        type: selectedType,
+        subject: subject,
+        message: details,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        _showSnackBar('تم إرسال رسالتك بنجاح', Colors.green.shade700);
+      if (!mounted) return;
+
+      if (success) {
+        _showSnackBar(message, Colors.green.shade700);
         _subjectController.clear();
         _detailsController.clear();
-        
-        if (mounted) {
-          context.pop();
-        }
+        context.pop();
+      } else {
+        _showSnackBar(message, Colors.red.shade700);
       }
-    } on DioException catch (e) {
-      debugPrint('API Error: ${e.response?.data}');
-      _showSnackBar('فشل في إرسال الرسالة، يرجى المحاولة لاحقاً', Colors.red.shade700);
     } catch (e) {
-      debugPrint('Unexpected Error: $e');
-      _showSnackBar('حدث خطأ غير متوقع', Colors.red.shade700);
+      if (mounted) {
+        _showSnackBar('حدث خطأ في الاتصال بالخادم', Colors.red.shade700);
+      }
     } finally {
       if (mounted) {
         setState(() {

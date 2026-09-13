@@ -25,11 +25,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   double? oldPrice;
   int? discountPercent;
 
-  Map<String, bool> addons = {
-    'extra_cheese': false,
-    'no_onion': false,
-    'soda': false,
-  };
+  final List<MealOption> _selectedOptions = [];
 
   @override
   void initState() {
@@ -66,8 +62,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
 
   double get _totalPrice {
     double total = _basePrice;
-    if (addons['extra_cheese'] == true) total += 500.0;
-    if (addons['soda'] == true) total += 800.0;
+    for (var option in _selectedOptions) {
+      total += option.price;
+    }
     return total * quantity;
   }
 
@@ -378,20 +375,31 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   // 3. أقسام الاختيارات المخصصة
   // ===========================================================================
   Widget _buildOptionsSections() {
+    if (widget.meal.options == null || widget.meal.options!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       children: [
         _buildSectionContainer(
-          title: "add_ons".tr(),
+          title: "options_and_addons".tr(),
           subtitle: "multiple_choices".tr(),
           isRequired: false,
-          children: addons.keys.map((String key) {
+          children: widget.meal.options!.map((option) {
+            final bool isSelected = _selectedOptions.contains(option);
             return _buildCheckboxOption(
-              label: key.tr(),
-              price: "",
-              value: addons[key]!,
+              label: option.name,
+              price: option.price > 0 
+                  ? "+${option.price.toStringAsFixed(0)} ${'currency'.tr()}"
+                  : "free".tr(),
+              value: isSelected,
               onChanged: (val) {
                 setState(() {
-                  addons[key] = val!;
+                  if (val == true) {
+                    _selectedOptions.add(option);
+                  } else {
+                    _selectedOptions.remove(option);
+                  }
                 });
               },
             );
@@ -603,11 +611,6 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                               color: Colors.transparent,
                               child: InkWell(
                                 onTap: () async {
-                                  List<String> selectedAddons = [];
-                                  addons.forEach((key, value) {
-                                    if (value) selectedAddons.add(key);
-                                  });
-
                                   try {
                                     await Provider.of<CartProvider>(
                                       context,
@@ -624,7 +627,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                         imageUrl: widget.meal.imageUrl ??
                                             'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
                                         quantity: quantity,
-                                        addons: selectedAddons,
+                                        selectedOptions: _selectedOptions,
                                       ),
                                     );
 

@@ -16,14 +16,16 @@ class RateOrderScreen extends StatefulWidget {
 }
 
 class _RateOrderScreenState extends State<RateOrderScreen> {
-  double foodRating = 5;
+  double foodRating = 0;
   double driverRating = 5;
-  double restaurantRating = 5;
+  double restaurantRating = 0;
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isAlreadyRated = false;
 
   Future<void> _submitReview() async {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _isAlreadyRated) return;
+    if (foodRating == 0 || restaurantRating == 0) return;
 
     setState(() {
       _isSubmitting = true;
@@ -31,17 +33,17 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
 
     try {
       final orderProvider = context.read<OrderProvider>();
-      final (success, message) = await orderProvider.submitOrderReview(
-        widget.orderId,
-        foodRating.toInt(),
-        driverRating.toInt(),
-        restaurantRating.toInt(),
-        _commentController.text.trim().isEmpty ? null : _commentController.text.trim(),
+      final (success, message, statusCode) = await orderProvider.submitRating(
+        orderId: widget.orderId.toString(),
+        mealsRating: foodRating.toInt(),
+        driverRating: driverRating.toInt(),
+        restaurantRating: restaurantRating.toInt(),
+        comment: _commentController.text.trim().isEmpty ? null : _commentController.text.trim(),
       );
 
       if (!mounted) return;
 
-      if (success) {
+      if (success || statusCode == 201 || statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -53,26 +55,59 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pop(context);
+        orderProvider.fetchOrders();
+        context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              message,
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+        if (statusCode == 422) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                message.isNotEmpty ? message : "يمكنك تقييم الطلبات فقط بعد اكتمال التوصيل",
+                style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+              ),
+              backgroundColor: const Color(0xFFD32F2F),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: const Color(0xFFD32F2F),
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+        } else if (statusCode == 409) {
+          setState(() {
+            _isAlreadyRated = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "تم تقييم هذا الطلب مسبقاً",
+                style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+              ),
+              backgroundColor: Colors.orange.shade800,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) context.pop();
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                message,
+                style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+              ),
+              backgroundColor: const Color(0xFFD32F2F),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              e.toString(),
+              "حدث خطأ في الاتصال بالخادم",
               style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: const Color(0xFFD32F2F),
@@ -245,7 +280,9 @@ class _RateOrderScreenState extends State<RateOrderScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitReview,
+                      onPressed: (_isSubmitting || _isAlreadyRated || foodRating == 0 || restaurantRating == 0)
+                          ? null
+                          : _submitReview,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD32F2F),
                         shape: RoundedRectangleBorder(

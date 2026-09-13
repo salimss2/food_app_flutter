@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/restaurant_model.dart';
 import '../core/api/dio_client.dart';
@@ -13,14 +14,20 @@ class RestaurantNotifier extends AsyncNotifier<List<Restaurant>> {
   Future<List<Restaurant>> _fetchRestaurantsFromApi() async {
     final dio = DioClient().dio;
     final response = await dio.get(Endpoints.getRestaurants);
-    
+
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = response.data;
-      final List<dynamic> restaurantsData = data is List 
-          ? data 
+      final List<dynamic> restaurantsData = data is List
+          ? data
           : (data['data'] ?? data['restaurants'] ?? []);
 
-      return restaurantsData.map((json) => Restaurant.fromJson(json as Map<String, dynamic>)).toList();
+      if (restaurantsData.isNotEmpty) {
+        debugPrint("🔍 RAW RESTAURANT DATA [0]: ${restaurantsData[0]}");
+      }
+
+      return restaurantsData
+          .map((json) => Restaurant.fromJson(json as Map<String, dynamic>))
+          .toList();
     } else {
       throw Exception('Failed to load restaurants: ${response.statusCode}');
     }
@@ -32,6 +39,7 @@ class RestaurantNotifier extends AsyncNotifier<List<Restaurant>> {
   }
 }
 
-final restaurantProvider = AsyncNotifierProvider<RestaurantNotifier, List<Restaurant>>(() {
-  return RestaurantNotifier();
-});
+final restaurantProvider =
+    AsyncNotifierProvider<RestaurantNotifier, List<Restaurant>>(() {
+      return RestaurantNotifier();
+    });

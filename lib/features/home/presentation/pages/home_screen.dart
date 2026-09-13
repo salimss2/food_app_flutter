@@ -1,5 +1,5 @@
-import 'dart:async'; // For auto scroll carousel interval
 import 'dart:convert';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'dart:ui'; // <-- هام جداً لتأثير الزجاج
 import 'package:customer_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +18,7 @@ import '../../../../core/widgets/global_exit_wrapper.dart';
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/favorites_provider.dart';
 import '../../../../providers/offers_provider.dart';
+import '../../../../models/offer_model.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/restaurant_provider.dart';
 import '../../../../models/restaurant_model.dart';
@@ -25,6 +26,9 @@ import '../../../../core/api/dio_client.dart';
 import '../../../../core/api/endpoints.dart';
 import '../widgets/home_drawer.dart';
 import '../../../../core/widgets/modern_settings_sheet.dart';
+import '../../../../core/widgets/shared_bottom_nav_bar.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/utils/image_url_helper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -39,10 +43,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   // الحالة لتتبع القسم المختار لفلترة المطاعم
   String _selectedCategoryFilter = "";
-
-  final PageController _pageController = PageController(viewportFraction: 0.93);
-  Timer? _timer;
-  int _currentPage = 0;
 
   String? _currentAddress;
 
@@ -68,40 +68,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _loadSavedAddress();
-    _startAutoScroll();
     _fetchCategories();
     // Check if location is already set before showing the dialog
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowLocationDialog();
-    });
-  }
-
-  void _startAutoScroll() {
-    _timer = Timer.periodic(const Duration(seconds: 5), (Timer timer) {
-      if (!mounted) return;
-      // Read offer count safely without rebuilding; default to 3 for skeleton phase
-      final offerCount = context.read<OffersProvider>().offers.length;
-      final maxPage = offerCount > 0 ? offerCount : 3;
-      if (_currentPage < maxPage - 1) {
-        _currentPage++;
-      } else {
-        _currentPage = 0;
-      }
-
-      if (_pageController.hasClients) {
-        _pageController.animateToPage(
-          _currentPage,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.fastOutSlowIn,
-        );
-      }
+      context.read<OffersProvider>().fetchBanners();
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -270,7 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // --- شريط التنقل السفلي العائم ---
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: _buildFloatingNavBar(),
+                  child: const SharedBottomNavBar(selectedIndex: 0),
                 ),
               ],
             ),
@@ -648,169 +624,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ===========================================================================
-  // شريط التنقل السفلي
-  // ===========================================================================
-  Widget _buildFloatingNavBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
-      child: Container(
-        height: 75,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(35),
-          boxShadow: [
-            BoxShadow(
-              color: isDark
-                  ? const Color.fromARGB(255, 54, 37, 124).withOpacity(0.8)
-                  : Colors.black.withOpacity(0.1),
-              blurRadius: 25,
-              offset: const Offset(0, 10),
-              spreadRadius: -5,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(35),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF1E1A34).withOpacity(0.85)
-                    : Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.7)
-                      : Colors.black.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _navItem(
-                    selectedIcon: Icons.manage_search,
-                    unselectedIcon: Icons.restaurant,
-                    label: "restaurants".tr(),
-                    index: 1,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.shopping_cart,
-                    unselectedIcon: Icons.shopping_cart_outlined,
-                    label: "cart".tr(),
-                    index: 2,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.home,
-                    unselectedIcon: Icons.home_outlined,
-                    label: "home".tr(),
-                    index: 0,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.receipt,
-                    unselectedIcon: Icons.receipt_outlined,
-                    label: "my_orders".tr(),
-                    index: 3,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.person,
-                    unselectedIcon: Icons.person_outline,
-                    label: "my_account".tr(),
-                    index: 4,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem({
-    required IconData selectedIcon,
-    required IconData unselectedIcon,
-    required String label,
-    required int index,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isSelected = _selectedIndex == index;
-
-    // 🌟 إضافة Expanded هنا لتوزيع المساحة الأفقية بالتساوي على الأزرار الـ 5
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (isSelected) return;
-
-          if (index == 1) {
-            context.go('/restaurants');
-          } else if (index == 2) {
-            context.push('/cart');
-          } else if (index == 3) {
-            context.go('/orders');
-          } else if (index == 4) {
-            context.go('/profile');
-          } else {
-            setState(() => _selectedIndex = index);
-          }
-        },
-        child: Container(
-          color: Colors.transparent,
-          // تقليل الـ horizontal padding قليلاً لإعطاء مساحة أكبر للنص
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isSelected)
-                ShaderMask(
-                  shaderCallback: (Rect bounds) {
-                    return const LinearGradient(
-                      colors: [
-                        Color(0xFF0F55E8),
-                        Color.fromARGB(255, 130, 87, 199),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ).createShader(bounds);
-                  },
-                  child: Icon(selectedIcon, color: Colors.white, size: 26),
-                )
-              else
-                Icon(
-                  unselectedIcon,
-                  color: isDark ? Colors.white54 : Colors.black54,
-                  size: 26,
-                ),
-
-              const SizedBox(height: 4),
-
-              // 🌟 استخدام FittedBox لوحدها بدون Flexible لكي يعمل التصغير بشكل سليم
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  style: GoogleFonts.cairo(
-                    color: isSelected
-                        ? const Color(0xFF0F55E8)
-                        : (isDark ? Colors.white54 : Colors.black54),
-                    fontSize: 11,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===========================================================================
   // بقية الودجت
   // ===========================================================================
   // ===========================================================================
@@ -947,66 +760,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _showComboOfferDetails(BuildContext context, Map<String, dynamic> offer) {
-    final offerId = offer['id']?.toString() ?? '';
-    final title = offer['title']?.toString() ?? 'Combo Offer';
-    final description = offer['description']?.toString() ?? '';
-    final comboPriceStr = offer['combo_price']?.toString() ?? '0';
-    final double comboPrice = double.tryParse(comboPriceStr) ?? 0.0;
-    final imageUrl = offer['image_url']?.toString() ?? offer['image']?.toString() ?? '';
-    
-    // Validity dates
-    final startDateStr = offer['start_date']?.toString() ?? '';
-    final endDateStr = offer['end_date']?.toString() ?? '';
-    
-    // Parse list of meals
-    List<dynamic> mealsList = [];
-    final rawMeals = offer['meals'] ?? offer['included_meals'];
-    if (rawMeals is List) {
-      mealsList = rawMeals;
-    } else if (rawMeals is String && rawMeals.isNotEmpty) {
-      try {
-        final parsed = jsonDecode(rawMeals);
-        if (parsed is List) {
-          mealsList = parsed;
-        }
-      } catch (_) {}
-    }
-    
-    final bool isAr = context.locale.languageCode == 'ar';
-    
-    String validityText = '';
-    if (startDateStr.isNotEmpty && endDateStr.isNotEmpty) {
-      try {
-        final start = DateTime.parse(startDateStr);
-        final end = DateTime.parse(endDateStr);
-        final formatter = DateFormat('yyyy/MM/dd', context.locale.languageCode);
-        validityText = isAr 
-            ? 'صالح من ${formatter.format(start)} إلى ${formatter.format(end)}'
-            : 'Valid from ${formatter.format(start)} to ${formatter.format(end)}';
-      } catch (_) {
-        validityText = isAr ? 'صالح لفترة محدودة' : 'Valid for a limited time';
-      }
-    } else {
-      validityText = isAr ? 'صالح لفترة محدودة' : 'Valid for a limited time';
+  void _showComboOfferDetailsSheet(BuildContext context, OfferModel offer) {
+    final String? imageUrl = offer.bannerImage;
+    final String title = offer.title.isNotEmpty ? offer.title : 'عرض مميز';
+    final String description = offer.description ?? '';
+    final double? offerPrice = offer.offerPrice;
+    final double? originalPrice = offer.originalPrice;
+    final double? discountPercentage = offer.discountPercentage;
+    final double effectivePrice = offerPrice ?? originalPrice ?? 0.0;
+
+    final String clickAction = offer.clickAction.toLowerCase();
+    final String type = offer.type.toLowerCase();
+    final bool isDirectCart = (clickAction == 'cart' ||
+        clickAction == 'direct_cart' ||
+        type == 'direct_cart');
+    final bool isCoupon = (clickAction == 'coupon');
+    final bool isRestaurant = !isDirectCart && !isCoupon;
+
+    // Safely extract restaurant ID
+    final int? resId = offer.restaurantId ??
+        (offer.restaurant != null
+            ? int.tryParse(offer.restaurant!['id']?.toString() ?? '')
+            : null) ??
+        (offer.meal != null
+            ? int.tryParse(offer.meal!['restaurant_id']?.toString() ?? '')
+            : null);
+
+    int? discountPercent;
+    if (discountPercentage != null && discountPercentage > 0) {
+      discountPercent = discountPercentage.round();
+    } else if (originalPrice != null &&
+        originalPrice > 0 &&
+        offerPrice != null &&
+        offerPrice < originalPrice) {
+      discountPercent =
+          (((originalPrice - offerPrice) / originalPrice) * 100).round();
     }
 
-    int selectedQty = 1;
     bool isAdding = false;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.7),
-      builder: (sheetCtx) {
+      builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1A34),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                color: const Color(0xFF1E1A34).withOpacity(0.95),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
               ),
               padding: EdgeInsets.only(
                 top: 15,
@@ -1019,412 +835,385 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Handlebar
+                    // Drag Handle
                     Center(
                       child: Container(
-                        width: 40,
-                        height: 4,
+                        width: 45,
+                        height: 5,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withOpacity(0.25),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 16),
 
-                    // Restaurant identity
-                    if (offer['restaurant'] != null)
+                    // Restaurant Badge (if present)
+                    if (offer.restaurant != null) ...[
                       Container(
-                        margin: const EdgeInsets.only(bottom: 15),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             CircleAvatar(
-                              radius: 12,
+                              radius: 11,
                               backgroundColor: Colors.white12,
-                              backgroundImage: offer['restaurant']['image_url'] != null ? NetworkImage(offer['restaurant']['image_url'].toString()) : null,
-                              child: offer['restaurant']['image_url'] == null ? const Icon(Icons.storefront, size: 14, color: Colors.white70) : null,
+                              backgroundImage:
+                                  offer.restaurant!['image_url'] != null
+                                      ? CachedNetworkImageProvider(
+                                          ImageUrlHelper.normalize(
+                                            offer.restaurant!['image_url']
+                                                .toString(),
+                                          ),
+                                        )
+                                      : null,
+                              child: offer.restaurant!['image_url'] == null
+                                  ? const Icon(
+                                      Icons.storefront,
+                                      size: 13,
+                                      color: Colors.white70,
+                                    )
+                                  : null,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              offer['restaurant']['name']?.toString() ?? '',
-                              style: GoogleFonts.cairo(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                              offer.restaurant!['name']?.toString() ?? '',
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ),
+                    ],
 
-                    // Image banner
-                    if (imageUrl.isNotEmpty)
+                    // Header Image
+                    if (imageUrl != null && imageUrl.isNotEmpty)
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Stack(
-                          children: [
-                            Image.network(
-                              imageUrl,
-                              width: double.infinity,
-                              height: 160,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: const Color(0xFF2A2547),
-                                width: double.infinity,
-                                height: 160,
-                                child: const Center(
-                                  child: Icon(Icons.broken_image, color: Colors.grey, size: 50),
+                        borderRadius: BorderRadius.circular(18),
+                        child: CachedNetworkImage(
+                          imageUrl: ImageUrlHelper.normalize(imageUrl),
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: const Color(0xFF2A2547),
+                            width: double.infinity,
+                            height: 200,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFFED922A),
                                 ),
                               ),
                             ),
-                            Container(
-                              height: 160,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: const Color(0xFF2A2547),
+                            width: double.infinity,
+                            height: 200,
+                            child: const Center(
+                              child: Icon(
+                                Icons.fastfood,
+                                color: Colors.grey,
+                                size: 40,
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 16),
 
-                    // Title and price row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: GoogleFonts.cairo(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE58B29),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${comboPrice.toInt()} ${"currency".tr()}',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+                    // Title
+                    Text(
+                      title,
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Validity badge
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, color: Color(0xFFE58B29), size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          validityText,
-                          style: GoogleFonts.cairo(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
 
                     // Description
                     if (description.isNotEmpty) ...[
                       Text(
                         description,
                         style: GoogleFonts.cairo(
-                          color: Colors.white60,
+                          color: Colors.white70,
                           fontSize: 14,
+                          height: 1.4,
                         ),
                       ),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 16),
                     ],
 
-                    // Included meals title
-                    Text(
-                      isAr ? 'الوجبات المشمولة:' : 'Included Meals:',
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Meals list
-                    if (mealsList.isEmpty)
-                      Text(
-                        isAr ? 'لا توجد وجبات مدرجة' : 'No included meals listed',
-                        style: GoogleFonts.cairo(
-                          color: Colors.white38,
-                          fontSize: 13,
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: mealsList.length,
-                        itemBuilder: (context, index) {
-                          final meal = mealsList[index];
-                          final actualMeal = meal['meal'] ?? meal;
-                          final mealName = actualMeal['name']?.toString() ?? actualMeal['title']?.toString() ?? '';
-                          final mealImage = actualMeal['image_url']?.toString() ?? actualMeal['image']?.toString() ?? '';
-                          
-                          final pivot = meal['pivot'];
-                          final String mealQty = (pivot != null 
-                              ? (pivot['quantity'] ?? pivot['qty'] ?? pivot['meal_quantity'])?.toString() 
-                              : null) ?? meal['quantity']?.toString() ?? meal['qty']?.toString() ?? '1';
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2A2640).withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    // Price Row (Hidden if restaurant action and price is null/0)
+                    if (effectivePrice > 0) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${effectivePrice.toStringAsFixed(0)} ر.ي',
+                            style: GoogleFonts.cairo(
+                              color: const Color(0xFFED922A),
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: Row(
-                              children: [
-                                if (mealImage.isNotEmpty)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      mealImage,
-                                      width: 45,
-                                      height: 45,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        color: Colors.white.withOpacity(0.05),
-                                        width: 45,
-                                        height: 45,
-                                        child: const Icon(Icons.fastfood, color: Colors.grey, size: 20),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.05),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    width: 45,
-                                    height: 45,
-                                    child: const Icon(Icons.fastfood, color: Colors.grey, size: 20),
-                                  ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    mealName,
-                                    style: GoogleFonts.cairo(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    'x$mealQty',
-                                    style: GoogleFonts.poppins(
-                                      color: const Color(0xFFE58B29),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    const SizedBox(height: 20),
-
-                    // Actions section
-                    Row(
-                      children: [
-                        // Quantity selector
-                        Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2A2640).withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.05)),
                           ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove, color: Colors.white),
-                                onPressed: selectedQty > 1
-                                    ? () => setSheetState(() => selectedQty--)
-                                    : null,
+                          const SizedBox(width: 10),
+                          if (originalPrice != null &&
+                              offerPrice != null &&
+                              originalPrice > offerPrice) ...[
+                            Text(
+                              '${originalPrice.toStringAsFixed(0)} ر.ي',
+                              style: GoogleFonts.cairo(
+                                color: Colors.white38,
+                                fontSize: 16,
+                                decoration: TextDecoration.lineThrough,
                               ),
-                              Text(
-                                '$selectedQty',
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontSize: 16,
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          if (discountPercent != null && discountPercent > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFED922A).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFFED922A).withOpacity(0.5),
+                                ),
+                              ),
+                              child: Text(
+                                '$discountPercent% خصم',
+                                style: GoogleFonts.cairo(
+                                  color: const Color(0xFFED922A),
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.add, color: Colors.white),
-                                onPressed: () => setSheetState(() => selectedQty++),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 15),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                    ],
 
-                        // Add to cart button
-                        Expanded(
-                          child: InkWell(
-                            onTap: isAdding
-                                ? null
-                                : () async {
-                                    final cartItem = CartItem(
-                                      mealId: '',
-                                      name: title,
-                                      price: comboPrice,
-                                      imageUrl: imageUrl,
-                                      quantity: selectedQty,
-                                      offerId: offerId,
-                                      type: 'combo_offer',
-                                      includedMeals: mealsList,
-                                      restaurantId: offer['restaurant_id']?.toString() ?? offer['restaurant']?['id']?.toString() ?? '',
-                                      restaurantName: offer['restaurant']?['name']?.toString() ?? '',
-                                      restaurantAddress: offer['restaurant']?['address']?.toString() ?? '',
+                    // Action Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFED922A),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 4,
+                          shadowColor: const Color(0xFFED922A).withOpacity(0.4),
+                        ),
+                        onPressed: isAdding
+                            ? null
+                            : () async {
+                                if (isRestaurant) {
+                                  Navigator.pop(sheetContext);
+                                  if (resId != null && resId > 0) {
+                                    final Map<String, dynamic> restaurantMap = {
+                                      'id': resId,
+                                      if (offer.restaurant != null)
+                                        ...offer.restaurant!,
+                                    };
+                                    context.push(
+                                      '/restaurant-detail',
+                                      extra: restaurantMap,
                                     );
-                                    setSheetState(() => isAdding = true);
-                                    try {
-                                      final restaurant = offer['restaurant'] as Map<String, dynamic>?;
-                                      await context.read<CartProvider>().addItem(cartItem, restaurant: restaurant);
-                                      if (context.mounted) {
-                                        Navigator.pop(sheetCtx);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              isAr ? 'تم إضافة العرض إلى السلة بنجاح' : 'Combo Offer added to cart successfully',
-                                              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold),
-                                            ),
-                                            backgroundColor: Colors.green.shade700,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        if (e.toString().contains('DIFFERENT_RESTAURANT')) {
-                                          showDialog(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              backgroundColor: const Color(0xFF1E1E2C),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                                              title: Text(isAr ? 'تنبيه' : 'Alert', style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold)),
-                                              content: Text(
-                                                isAr 
-                                                  ? 'لا يمكنك إضافة عناصر من مطاعم مختلفة. هل تريد تفريغ السلة؟' 
-                                                  : 'You cannot add items from different restaurants. Do you want to clear your cart?',
-                                                style: GoogleFonts.cairo(color: Colors.white70),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx),
-                                                  child: Text(isAr ? 'إلغاء' : 'Cancel', style: GoogleFonts.cairo(color: Colors.grey)),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () async {
-                                                    Navigator.pop(ctx); // Close dialog
-                                                    await context.read<CartProvider>().clearCart();
-                                                    final restaurant = offer['restaurant'] as Map<String, dynamic>?;
-                                                    await context.read<CartProvider>().addItem(cartItem, restaurant: restaurant);
-                                                    if (context.mounted) {
-                                                      Navigator.pop(sheetCtx); // Close the bottom sheet too
-                                                    }
-                                                  },
-                                                  child: Text(isAr ? 'تفريغ وإضافة' : 'Clear & Add', style: GoogleFonts.cairo(color: const Color(0xFFD32F2F), fontWeight: FontWeight.bold)),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                e.toString(),
-                                                style: GoogleFonts.cairo(color: Colors.white),
-                                              ),
-                                              backgroundColor: Colors.red.shade700,
-                                              behavior: SnackBarBehavior.floating,
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    } finally {
-                                      setSheetState(() => isAdding = false);
-                                    }
-                                  },
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD32F2F),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFD32F2F).withOpacity(0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: isAdding
-                                    ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        isAr ? 'إضافة العرض إلى السلة' : 'Add Offer to Cart',
+                                  } else {
+                                    context.go('/restaurants');
+                                  }
+                                } else if (isCoupon) {
+                                  final code = (offer.couponCode != null &&
+                                          offer.couponCode!.isNotEmpty)
+                                      ? offer.couponCode!
+                                      : offer.title;
+                                  Clipboard.setData(ClipboardData(text: code));
+                                  Navigator.pop(sheetContext);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'تم نسخ كود الخصم ($code) بنجاح',
                                         style: GoogleFonts.cairo(
                                           color: Colors.white,
-                                          fontSize: 14,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
+                                      backgroundColor: const Color(0xFFED922A),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                } else {
+                                  // Cart Action
+                                  setSheetState(() => isAdding = true);
+                                  try {
+                                    final mealId = offer.mealId?.toString() ??
+                                        offer.id.toString();
+                                    final double targetPrice =
+                                        (offer.offerPrice != null &&
+                                                offer.offerPrice! > 0)
+                                            ? offer.offerPrice!
+                                            : (offer.originalPrice ??
+                                                effectivePrice);
+
+                                    final cartItem = CartItem(
+                                      mealId: mealId,
+                                      offerId: offer.id.toString(),
+                                      name: offer.title.isNotEmpty
+                                          ? offer.title
+                                          : 'عرض خاص',
+                                      price: targetPrice > 0
+                                          ? targetPrice
+                                          : effectivePrice,
+                                      unitPrice: targetPrice > 0
+                                          ? targetPrice
+                                          : effectivePrice,
+                                      originalPrice: offer.originalPrice,
+                                      imageUrl: offer.bannerImage ?? '',
+                                      quantity: 1,
+                                      restaurantId: resId?.toString() ??
+                                          offer.restaurantId?.toString() ??
+                                          '',
+                                      type: offer.mealId != null
+                                          ? 'meal'
+                                          : 'combo_offer',
+                                    );
+
+                                    await sheetContext
+                                        .read<CartProvider>()
+                                        .addItem(
+                                          cartItem,
+                                          restaurant: resId != null
+                                              ? {
+                                                  'id': resId,
+                                                  if (offer.restaurant != null)
+                                                    ...offer.restaurant!,
+                                                }
+                                              : null,
+                                          priceOverride: targetPrice > 0
+                                              ? targetPrice
+                                              : null,
+                                        );
+
+                                    if (sheetContext.mounted) {
+                                      Navigator.pop(sheetContext);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'تمت إضافة العرض إلى السلة بنجاح',
+                                            style: GoogleFonts.cairo(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          backgroundColor: Colors.green,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (sheetContext.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            e.toString().replaceAll(
+                                                'Exception: ', ''),
+                                            style: GoogleFonts.cairo(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          backgroundColor: Colors.red,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } finally {
+                                    if (sheetContext.mounted) {
+                                      setSheetState(() => isAdding = false);
+                                    }
+                                  }
+                                }
+                              },
+                        child: isAdding
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    isRestaurant
+                                        ? Icons.storefront_outlined
+                                        : isCoupon
+                                            ? Icons.copy_rounded
+                                            : Icons.shopping_bag_outlined,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isRestaurant
+                                        ? 'الذهاب للمطعم'
+                                        : isCoupon
+                                            ? 'نسخ كود الخصم'
+                                            : 'إضافة للسلة',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1436,6 +1225,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _handleBannerTap(BuildContext context, OfferModel offer) {
+    _showComboOfferDetailsSheet(context, offer);
+  }
+
   Widget _buildPromoBanner() {
     return Consumer<OffersProvider>(
       builder: (context, offersProvider, _) {
@@ -1445,159 +1238,284 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return _buildOfferShimmer();
         }
 
-        // ── Error or empty: show nothing gracefully ──────────────────────
-        if (offersProvider.hasError || offersProvider.offers.isEmpty) {
-          return const SizedBox.shrink();
+        // ── Temporary Diagnostic: Error state ────────────────────────────
+        if (offersProvider.hasError) {
+          return Container(
+            height: 100,
+            margin: const EdgeInsets.symmetric(horizontal: 5),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.redAccent),
+            ),
+            child: Center(
+              child: Text(
+                'API Error: ${offersProvider.errorMessage}\n(Check Console for 🛑 logs)',
+                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
         }
 
-        // ── Loaded: dynamic PageView ─────────────────────────────────────
-        final offers = offersProvider.offers;
-        return SizedBox(
-          height: 180,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (int index) {
-              setState(() => _currentPage = index);
-            },
-            itemCount: offers.length,
-            itemBuilder: (context, index) {
-              final offer = offers[index] as Map<String, dynamic>;
-              final accentColor = Color(
-                _offerColors[index % _offerColors.length],
-              );
-              final imageUrl =
-                  (offer['image_url'] as String?) ??
-                  (offer['image'] as String?) ??
-                  '';
-              final title = (offer['title'] as String?) ?? '';
-              final description =
-                  (offer['description'] as String?) ??
-                  (offer['subtitle'] as String?) ??
-                  '';
-              final comboPrice = (offer['combo_price']?.toString()) ?? '';
-              final discount = comboPrice.isNotEmpty ? '$comboPrice ر.ي' : '';
+        // ── Temporary Diagnostic: Empty state ────────────────────────────
+        if (offersProvider.banners.isEmpty) {
+          return Container(
+            height: 100,
+            margin: const EdgeInsets.symmetric(horizontal: 5),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orangeAccent),
+            ),
+            child: const Center(
+              child: Text(
+                'No Active Banners Found (offers list is empty)\n(Check Console for 🛑 logs)',
+                style: TextStyle(color: Colors.orangeAccent, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
 
-              return GestureDetector(
-                onTap: () => _showComboOfferDetails(context, offer),
-                child: Container(
-                  margin: const EdgeInsets.only(left: 10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Background image
-                        imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: 180,
-                                errorBuilder: (_, __, ___) => Container(
+        // ── Loaded: dynamic CarouselSlider with OfferModel ───────────────
+        final banners = offersProvider.banners;
+        return CarouselSlider(
+          options: CarouselOptions(
+            height: 180,
+            autoPlay: true,
+            autoPlayInterval: const Duration(seconds: 5),
+            autoPlayAnimationDuration: const Duration(milliseconds: 800),
+            autoPlayCurve: Curves.fastOutSlowIn,
+            enlargeCenterPage: true,
+            viewportFraction: 0.93,
+          ),
+          items: banners.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final OfferModel offer = entry.value;
+            final accentColor = Color(
+              _offerColors[index % _offerColors.length],
+            );
+            final String? imageUrl = offer.bannerImage;
+            final String title = offer.title;
+            final String description = offer.description ?? '';
+            final double? offerPrice = offer.offerPrice;
+            final double? originalPrice = offer.originalPrice;
+            final double? discountPercentage = offer.discountPercentage;
+
+            String discountBadge = '';
+            if (discountPercentage != null && discountPercentage > 0) {
+              discountBadge = '${discountPercentage.round()}% خصم';
+            } else if (offerPrice != null && offerPrice > 0) {
+              discountBadge = '${offerPrice.toStringAsFixed(0)} ر.ي';
+            }
+
+            return GestureDetector(
+              onTap: () => _handleBannerTap(context, offer),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Background image with CachedNetworkImage & Shimmer Fallback
+                      imageUrl != null && imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: ImageUrlHelper.normalize(imageUrl),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: 180,
+                              placeholder: (context, url) => Shimmer.fromColors(
+                                baseColor: const Color(0xFF1E1A34),
+                                highlightColor: const Color(0xFF2A2640),
+                                child: Container(
                                   color: const Color(0xFF2A2547),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.wifi_off,
-                                      color: Colors.grey,
-                                      size: 30,
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => Container(
+                                color: const Color(0xFF2A2547),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.fastfood,
+                                    color: Colors.grey,
+                                    size: 36,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF2A2547), Color(0xFF1E1A34)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                            ),
+
+                      // Dark gradient overlay
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withOpacity(0.8),
+                              Colors.black.withOpacity(0.35),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                      ),
+
+                      // Text content
+                      Padding(
+                        padding: const EdgeInsets.all(18.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // Restaurant Badge
+                            if (offer.restaurant != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.2),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 9,
+                                      backgroundColor: Colors.white12,
+                                      backgroundImage:
+                                          offer.restaurant!['image_url'] != null
+                                              ? CachedNetworkImageProvider(
+                                                  ImageUrlHelper.normalize(
+                                                    offer.restaurant!['image_url'].toString(),
+                                                  ),
+                                                )
+                                              : null,
+                                      child: offer.restaurant!['image_url'] == null
+                                          ? const Icon(
+                                              Icons.storefront,
+                                              size: 11,
+                                              color: Colors.white70,
+                                            )
+                                          : null,
                                     ),
-                                  ),
-                                ),
-                              )
-                            : Container(color: const Color(0xFF2A2547)),
-
-                        // Dark overlay
-                        Container(color: Colors.black.withOpacity(0.6)),
-
-                        // Text content
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Restaurant Badge
-                              if (offer['restaurant'] != null)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 10,
-                                        backgroundColor: Colors.white12,
-                                        backgroundImage: offer['restaurant']['image_url'] != null ? NetworkImage(offer['restaurant']['image_url'].toString()) : null,
-                                        child: offer['restaurant']['image_url'] == null ? const Icon(Icons.storefront, size: 12, color: Colors.white70) : null,
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      offer.restaurant!['name']?.toString() ?? '',
+                                      style: GoogleFonts.cairo(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        offer['restaurant']['name']?.toString() ?? '',
-                                        style: GoogleFonts.cairo(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+
+                            if (title.isNotEmpty)
                               Text(
                                 title,
                                 style: GoogleFonts.cairo(
                                   color: Colors.white,
-                                  fontSize: 20,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 8),
+                            if (description.isNotEmpty) ...[
+                              const SizedBox(height: 2),
                               Text(
                                 description,
                                 style: GoogleFonts.cairo(
                                   color: Colors.white70,
-                                  fontSize: 14,
+                                  fontSize: 12,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
-                          ),
+                            if (originalPrice != null && offerPrice != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${offerPrice.toStringAsFixed(0)} ر.ي',
+                                    style: GoogleFonts.cairo(
+                                      color: const Color(0xFFFF5555),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${originalPrice.toStringAsFixed(0)} ر.ي',
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white38,
+                                      fontSize: 11,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
+                      ),
 
-                        // Discount badge
-                        if (discount.isNotEmpty)
-                          Positioned(
-                            top: 15,
-                            left: 15,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: accentColor,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                discount,
-                                style: GoogleFonts.cairo(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                      // Discount badge
+                      if (discountBadge.isNotEmpty)
+                        Positioned(
+                          top: 14,
+                          left: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accentColor,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: accentColor.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
                                 ),
+                              ],
+                            ),
+                            child: Text(
+                              discountBadge,
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }).toList(),
         );
       },
     );
@@ -1609,11 +1527,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Shimmer.fromColors(
         baseColor: const Color(0xFF1E1A34),
         highlightColor: const Color(0xFF2A2640),
-        child: PageView.builder(
-          controller: PageController(viewportFraction: 0.93),
+        child: CarouselSlider.builder(
+          options: CarouselOptions(
+            height: 180,
+            viewportFraction: 0.93,
+            enlargeCenterPage: true,
+          ),
           itemCount: 3,
-          itemBuilder: (_, __) => Container(
-            margin: const EdgeInsets.only(left: 10),
+          itemBuilder: (_, __, ___) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 5),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -1740,13 +1662,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            restaurant.imageUrl ??
-                                'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80',
+                          child: CachedNetworkImage(
+                            imageUrl: ImageUrlHelper.normalize(
+                              restaurant.imageUrl ??
+                                  'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80',
+                            ),
                             width: 60,
                             height: 60,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
+                            errorWidget: (context, url, error) {
                               return Container(
                                 width: 60,
                                 height: 60,

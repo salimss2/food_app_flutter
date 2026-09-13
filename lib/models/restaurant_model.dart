@@ -14,6 +14,29 @@ class Offer {
   }
 }
 
+class MealOption {
+  final int id;
+  final int mealId;
+  final String name;
+  final double price;
+
+  MealOption({
+    required this.id,
+    required this.mealId,
+    required this.name,
+    required this.price,
+  });
+
+  factory MealOption.fromJson(Map<String, dynamic> json) {
+    return MealOption(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      mealId: int.tryParse(json['meal_id']?.toString() ?? '0') ?? 0,
+      name: json['name']?.toString() ?? '',
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
+    );
+  }
+}
+
 class Meal {
   final String id;
   final String name;
@@ -27,6 +50,7 @@ class Meal {
   final DateTime? discountStart;
   final DateTime? discountEnd;
   final double? priceAfterDiscount;
+  final List<MealOption>? options;
 
   Meal({
     required this.id,
@@ -41,10 +65,19 @@ class Meal {
     this.discountStart,
     this.discountEnd,
     this.priceAfterDiscount,
+    this.options,
   });
 
   factory Meal.fromJson(Map<String, dynamic> json) {
+    print('🍔 DEBUG PARSING MEAL: ${json['name']} | Variants Key: ${json['variants']} | Options Key: ${json['options']}');
     var offersList = json['offers'] as List?;
+    
+    final rawOptions = json['options'];
+    List<MealOption>? parsedOptions;
+    if (rawOptions != null && rawOptions is List) {
+      parsedOptions = rawOptions.map((e) => MealOption.fromJson(e as Map<String, dynamic>)).toList();
+    }
+
     
     DateTime? parseDateTime(dynamic value) {
       if (value == null) return null;
@@ -60,7 +93,7 @@ class Meal {
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
-      imageUrl: json['image_url']?.toString(), // mapped from image_url
+      imageUrl: json['image_url']?.toString() ?? json['image']?.toString() ?? json['photo']?.toString(),
       available: _parseAvailable(json['available']),
       offers: offersList != null
           ? offersList
@@ -72,6 +105,7 @@ class Meal {
       discountStart: parseDateTime(json['discount_start']),
       discountEnd: parseDateTime(json['discount_end']),
       priceAfterDiscount: double.tryParse(json['price_after_discount']?.toString() ?? ''),
+      options: parsedOptions,
     );
   }
 
@@ -154,8 +188,7 @@ class Restaurant {
       distance: json['distance']?.toString() ?? '0.0',
       rating: double.tryParse(json['rating']?.toString() ?? '0') ?? 0.0,
       isOpen: isOpen,
-      // imageUrl: json['image_url']?.toString() ?? json['logo']?.toString(),
-      imageUrl: json['logo']?.toString() ?? json['image']?.toString(),
+      imageUrl: json['logo']?.toString() ?? json['image_url']?.toString() ?? json['cover_image']?.toString(),
       tags: tagsList != null ? tagsList.map((e) => e.toString()).toList() : [],
       menus: menusList != null
           ? menusList
