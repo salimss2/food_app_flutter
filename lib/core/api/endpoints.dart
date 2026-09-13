@@ -5,7 +5,8 @@ class Endpoints {
   // static const String baseUrl = "http://10.0.0.4:8000/api";
   // static const String baseUrl = "http://192.168.8.141:8000/api";
   //https://food-app-9pfa.onrender.com/api/
-  static const String baseUrl = "https://food-app-9pfa.onrender.com/api";
+  static const String baseUrl =
+      "https://inclusion-stranger-imperial-sterling.trycloudflare.com/api";
   // static const String baseUrl = "http://192.168.137.1:8000/api";
   // هام جداً: في الطرفية (Terminal) يجب تشغيل السيرفر بهذا الأمر:
   // php artisan serve --host=0.0.0.0
@@ -38,6 +39,7 @@ class Endpoints {
       "$baseUrl/v1/cart/remove"; // Append /{id} dynamically
   static const String clearCart = "$baseUrl/v1/cart/clear";
   static const String applyCoupon = "$baseUrl/v1/coupons/apply";
+  static const String validateCoupon = "$baseUrl/v1/coupons/validate";
 
   // Orders
   static const String orders = "$baseUrl/v1/orders";
@@ -45,6 +47,7 @@ class Endpoints {
   static const String placeOrder = "$baseUrl/v1/orders";
   static String submitReview(int orderId) =>
       "$baseUrl/v1/orders/$orderId/review";
+  static const String ratings = "$baseUrl/v1/ratings";
 
   // Favorites
   static const String getFavorites = "$baseUrl/v1/favorites";
@@ -53,7 +56,7 @@ class Endpoints {
       "$baseUrl/v1/favorites/toggle-restaurant";
 
   // Support
-  static const String sendSupportMessage = "$baseUrl/v1/support";
+  static const String sendSupportMessage = "$baseUrl/v1/support/tickets";
 
   static const String privacyPolicy = "$baseUrl/v1/privacy-policy";
 
@@ -62,4 +65,10 @@ class Endpoints {
   static const String categories = "$baseUrl/v1/app-categories";
 
   static const String search = "$baseUrl/v1/search";
+
+  // Offers & Deals
+  static const String offerBanners = "$baseUrl/v1/offers/banners";
+  static const String offers = "$baseUrl/v1/offers";
+  static String restaurantOffers(dynamic restaurantId) =>
+      "$baseUrl/v1/restaurants/$restaurantId/offers";
 }

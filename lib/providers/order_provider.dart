@@ -65,6 +65,7 @@ class OrderProvider extends ChangeNotifier {
     required double customerLat,
     required double customerLng,
     String? couponCode,
+    double? discountAmount,
   }) async {
     isLoading = true;
     lastError = null;
@@ -83,8 +84,11 @@ class OrderProvider extends ChangeNotifier {
       if (receiptNumber != null) {
         fields['receipt_number'] = receiptNumber;
       }
-      if (couponCode != null) {
+      if (couponCode != null && couponCode.isNotEmpty) {
         fields['coupon_code'] = couponCode;
+      }
+      if (discountAmount != null && discountAmount > 0) {
+        fields['discount_amount'] = discountAmount;
       }
       
       fields['delivery_fee'] = deliveryFee;
@@ -188,6 +192,53 @@ class OrderProvider extends ChangeNotifier {
       lastError = msg;
       debugPrint('Error in submitOrderReview: $e');
       return (false, msg);
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Submit Rating — POST /api/v1/ratings
+  // ---------------------------------------------------------------------------
+  Future<(bool success, String message, int? statusCode)> submitRating({
+    required String orderId,
+    required int mealsRating,
+    required int driverRating,
+    required int restaurantRating,
+    String? comment,
+  }) async {
+    isLoading = true;
+    lastError = null;
+    notifyListeners();
+
+    try {
+      final response = await _dio.post(
+        Endpoints.ratings,
+        data: {
+          'order_id': orderId,
+          'meals_rating': mealsRating,
+          'driver_rating': driverRating,
+          'restaurant_rating': restaurantRating,
+          if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+        },
+      );
+
+      final data = response.data;
+      return (true, data['message']?.toString() ?? 'تم إرسال التقييم بنجاح', response.statusCode);
+    } on DioException catch (e) {
+      final serverMsg = e.response?.data?['message']?.toString();
+      final msg = serverMsg ?? e.message ?? 'تعذّر الاتصال بالخادم';
+      lastError = msg;
+      debugPrint('DioException in submitRating:');
+      debugPrint('  Status : ${e.response?.statusCode}');
+      debugPrint('  Data   : ${e.response?.data}');
+      return (false, msg, e.response?.statusCode);
+    } catch (e) {
+      final msg = e.toString();
+      lastError = msg;
+      debugPrint('Error in submitRating: $e');
+      return (false, msg, null);
     } finally {
       isLoading = false;
       notifyListeners();

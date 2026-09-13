@@ -10,6 +10,8 @@ import '../../../../providers/order_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../core/api/dio_client.dart';
 import '../../../../core/api/endpoints.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/utils/image_url_helper.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -396,7 +398,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           color: isDark ? Colors.white12 : Colors.black12,
                           image: restaurantLogo != null
                               ? DecorationImage(
-                                  image: NetworkImage(restaurantLogo),
+                                  image: CachedNetworkImageProvider(ImageUrlHelper.normalize(restaurantLogo)),
                                   fit: BoxFit.cover,
                                 )
                               : null,
@@ -604,13 +606,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 : Colors.black.withOpacity(0.1),
                           ),
                           color: isDark ? Colors.white12 : Colors.black12,
-                          image:
-                              order["restaurantLogo"] != null &&
-                                  order["restaurantLogo"].toString().startsWith(
-                                    'http',
-                                  )
+                          image: order["restaurantLogo"] != null
                               ? DecorationImage(
-                                  image: NetworkImage(order["restaurantLogo"]),
+                                  image: CachedNetworkImageProvider(ImageUrlHelper.normalize(order["restaurantLogo"].toString())),
                                   fit: BoxFit.cover,
                                 )
                               : const DecorationImage(

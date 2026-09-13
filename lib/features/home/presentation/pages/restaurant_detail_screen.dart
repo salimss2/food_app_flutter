@@ -11,7 +11,13 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/favorites_provider.dart';
+import '../../../../providers/offers_provider.dart';
+import '../../../../models/restaurant_model.dart';
+import '../../../../models/offer_model.dart';
 import '../../../../core/api/endpoints.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/utils/image_url_helper.dart';
+import '../widgets/meal_options_bottom_sheet.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   final Map<String, dynamic> restaurantData;
@@ -47,6 +53,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     super.dispose();
   }
 
+  static const int dealsCategoryId = -999;
+
   @override
   // 🌟 أضف هذه الدالة
   Future<void> _fetchRestaurantDetails() async {
@@ -57,6 +65,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
       // 2. رقم المطعم الحالي
       final restaurantId = widget.restaurantData['id'];
+      final int parsedRestId = int.tryParse(restaurantId?.toString() ?? '') ?? 0;
+
+      // جلب عروض وتخفيضات المطعم عبر OffersProvider
+      if (parsedRestId > 0 && mounted) {
+        context.read<OffersProvider>().fetchRestaurantOffers(parsedRestId);
+      }
 
       // 3. الاتصال بالسيرفر (تأكد من مسار الـ API الخاص بك)
       final response = await Dio().get(
@@ -104,12 +118,13 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       "DEBUG: Full Restaurant Data: ${jsonEncode(widget.restaurantData)}",
     );
 
-    final bool isRestaurantOpen = dataSource['isOpen'] == true ||
-                                  dataSource['is_open'] == true || 
-                                  dataSource['is_open'] == 1 || 
-                                  dataSource['is_open'] == '1' ||
-                                  dataSource['status']?.toString().toLowerCase() == 'open';
-    
+    final bool isRestaurantOpen =
+        dataSource['isOpen'] == true ||
+        dataSource['is_open'] == true ||
+        dataSource['is_open'] == 1 ||
+        dataSource['is_open'] == '1' ||
+        dataSource['status']?.toString().toLowerCase() == 'open';
+
     final bool isClosed = !isRestaurantOpen;
 
     // 1. استخراج الفئات والوجبات وتجهيزها للفلترة
@@ -167,6 +182,13 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         "name": "الكل",
         "icon": Icons.local_fire_department,
         "color": const Color(0xFFF27B21),
+        "isIcon": true,
+      },
+      {
+        "id": dealsCategoryId,
+        "name": "العروض والتخفيضات",
+        "icon": Icons.local_offer,
+        "color": const Color(0xFFFF5555),
         "isIcon": true,
       },
       ...categoriesRaw.map((cat) {
@@ -265,8 +287,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 ),
                                 const SizedBox(height: 15),
 
-                                // قائمة الوجبات
-                                _buildMenuItemsList(filteredMeals, isClosed),
+                                // قائمة الوجبات أو العروض
+                                _selectedCategoryId == dealsCategoryId
+                                    ? _buildDealsSection(dataSource, allMeals, isClosed)
+                                    : _buildMenuItemsList(filteredMeals, isClosed),
                               ],
                             ),
                           ),
@@ -298,9 +322,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         image: DecorationImage(
-          image: NetworkImage(
-            widget.restaurantData['imageUrl'] ??
-                'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80',
+          image: CachedNetworkImageProvider(
+            ImageUrlHelper.normalize(
+              widget.restaurantData['imageUrl'] ??
+                  'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80',
+            ),
           ),
           fit: BoxFit.cover,
         ),
@@ -317,37 +343,46 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             stops: const [0.6, 1.0],
           ),
         ),
-        child: isClosed ? Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.lock_clock, color: Colors.white, size: 24),
-                const SizedBox(width: 10),
-                Text(
-                  "currently_closed".tr(),
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+        child: isClosed
+            ? Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.lock_clock,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        "currently_closed".tr(),
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ) : null,
+              )
+            : null,
       ),
     );
   }
@@ -810,6 +845,410 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   }
 
   // ===========================================================================
+  // 4.1. قسم العروض والتخفيضات (Offers & Combo Deals)
+  // ===========================================================================
+  Widget _buildDealsSection(
+    Map<String, dynamic> dataSource,
+    List<dynamic> allMeals,
+    bool isClosed,
+  ) {
+    final int restaurantId = int.tryParse(
+          dataSource['id']?.toString() ??
+              widget.restaurantData['id']?.toString() ??
+              '',
+        ) ??
+        0;
+
+    return Consumer<OffersProvider>(
+      builder: (context, offersProvider, _) {
+        final restaurantOffers =
+            offersProvider.getRestaurantOffers(restaurantId);
+        final isLoading =
+            offersProvider.isRestaurantOffersLoading(restaurantId);
+
+        if (isLoading) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFFED922A)),
+            ),
+          );
+        }
+
+        // Also extract any meals with active promotional discounts from this restaurant
+        final List<Map<String, dynamic>> promoMeals = allMeals.where((meal) {
+          final double price =
+              double.tryParse(meal['price']?.toString() ?? '') ?? 0.0;
+          final double? disc = double.tryParse(
+            meal['price_after_discount']?.toString() ?? '',
+          );
+          return disc != null && disc > 0 && disc < price;
+        }).map((m) => Map<String, dynamic>.from(m)).toList();
+
+        if (restaurantOffers.isEmpty && promoMeals.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.local_offer_outlined,
+                    color: Colors.white38,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'لا توجد عروض وتخفيضات حالياً لهذا المطعم',
+                    style: GoogleFonts.cairo(
+                      color: Colors.white70,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          children: [
+            // 1. Restaurant Combo & Promotional Offers
+            ...restaurantOffers.map(
+              (offer) => _buildPromotionalOfferCard(offer, dataSource, isClosed),
+            ),
+
+            // 2. Discounted meals from the menu
+            ...promoMeals.asMap().entries.map(
+                  (entry) =>
+                      _buildMenuItemCard(entry.value, entry.key, isClosed),
+                ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPromotionalOfferCard(
+    OfferModel offer,
+    Map<String, dynamic> dataSource,
+    bool isClosed,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final String offerTitle = offer.title.isNotEmpty ? offer.title : 'عرض مميز';
+    final String offerDesc = offer.description ?? '';
+    final double? offerPrice = offer.offerPrice;
+    final double? originalPrice = offer.originalPrice;
+    final double? discountPercentage = offer.discountPercentage;
+    final String? imageUrl = offer.bannerImage;
+
+    int? discountPercent;
+    if (discountPercentage != null && discountPercentage > 0) {
+      discountPercent = discountPercentage.round();
+    } else if (originalPrice != null &&
+        originalPrice > 0 &&
+        offerPrice != null &&
+        offerPrice < originalPrice) {
+      discountPercent =
+          (((originalPrice - offerPrice) / originalPrice) * 100).round();
+    }
+
+    final double effectivePrice = offerPrice ?? originalPrice ?? 0.0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E1A34).withOpacity(0.5)
+                  : Colors.white.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.white.withOpacity(0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Image with Discount Badge
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(16),
+                        bottomRight: Radius.circular(16),
+                      ),
+                      child: imageUrl != null && imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: ImageUrlHelper.normalize(imageUrl),
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              errorWidget: (context, url, error) => Container(
+                                width: 120,
+                                height: 120,
+                                color: Colors.grey[800],
+                                child: const Icon(
+                                  Icons.fastfood,
+                                  color: Colors.grey,
+                                  size: 40,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 120,
+                              height: 120,
+                              color: Colors.grey[800],
+                              child: const Icon(
+                                Icons.fastfood,
+                                color: Colors.grey,
+                                size: 40,
+                              ),
+                            ),
+                    ),
+                    if (discountPercent != null && discountPercent > 0)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF5555),
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF5555).withOpacity(0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            "-$discountPercent%",
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // Details & Add to cart
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          offerTitle,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (offerDesc.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            offerDesc,
+                            style: TextStyle(
+                              color: isDark ? Colors.white54 : Colors.black54,
+                              fontSize: 12,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+
+                        // Price and Add button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  '${effectivePrice.toStringAsFixed(0)} ',
+                                  style: TextStyle(
+                                    color: (originalPrice != null &&
+                                            originalPrice > effectivePrice)
+                                        ? const Color(0xFFFF5555)
+                                        : (isDark
+                                            ? Colors.white
+                                            : Colors.black87),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '${'currency'.tr()} ',
+                                  style: TextStyle(
+                                    color: (originalPrice != null &&
+                                            originalPrice > effectivePrice)
+                                        ? const Color(0xFFFF5555)
+                                        : (isDark
+                                            ? Colors.white70
+                                            : Colors.black54),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                if (originalPrice != null &&
+                                    originalPrice > effectivePrice) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${originalPrice.toStringAsFixed(0)} ${'currency'.tr()}',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white38
+                                          : Colors.black38,
+                                      fontSize: 12,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+
+                            // Quick Add to cart button
+                            ElevatedButton(
+                              onPressed: isClosed
+                                  ? null
+                                  : () {
+                                      final restId = offer.restaurantId
+                                              ?.toString() ??
+                                          dataSource['id']?.toString() ??
+                                          widget.restaurantData['id']
+                                              ?.toString() ??
+                                          '';
+                                      final mealId = offer.mealId?.toString() ??
+                                          offer.id.toString();
+                                      final double targetPrice =
+                                          (offer.offerPrice != null &&
+                                                  offer.offerPrice! > 0)
+                                              ? offer.offerPrice!
+                                              : (offer.originalPrice ??
+                                                  effectivePrice);
+
+                                      context
+                                          .read<CartProvider>()
+                                          .addItem(
+                                            CartItem(
+                                              mealId: mealId,
+                                              offerId: offer.id.toString(),
+                                              name: offerTitle,
+                                              price: targetPrice > 0
+                                                  ? targetPrice
+                                                  : effectivePrice,
+                                              unitPrice: targetPrice > 0
+                                                  ? targetPrice
+                                                  : effectivePrice,
+                                              originalPrice: originalPrice,
+                                              imageUrl: ImageUrlHelper.normalize(
+                                                imageUrl,
+                                              ),
+                                              quantity: 1,
+                                              restaurantId: restId,
+                                              type: offer.mealId != null
+                                                  ? 'meal'
+                                                  : 'combo_offer',
+                                            ),
+                                            restaurant: dataSource,
+                                            priceOverride: targetPrice > 0
+                                                ? targetPrice
+                                                : null,
+                                          )
+                                          .then((_) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'تمت إضافة العرض إلى السلة بنجاح',
+                                                ),
+                                                backgroundColor: Colors.green,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          })
+                                          .catchError((e) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  e.toString().replaceAll(
+                                                        'Exception: ',
+                                                        '',
+                                                      ),
+                                                ),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          });
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isClosed
+                                    ? Colors.grey
+                                    : const Color(0xFFE63946),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                isClosed
+                                    ? 'restaurant_closed'.tr()
+                                    : 'إضافة للسلة',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
   // 5. قائمة الوجبات المحدثة (تصميم مطابق للسكرين شوت)
   // ===========================================================================
   Widget _buildMenuItemsList(List<dynamic> filteredMeals, bool isClosed) {
@@ -847,12 +1286,20 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     );
   }
 
-  Widget _buildMenuItemCard(Map<String, dynamic> meal, int index, bool isClosed) {
+  Widget _buildMenuItemCard(
+    Map<String, dynamic> meal,
+    int index,
+    bool isClosed,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // تحديد متغيرات الوجبة بأمان
     final String mealId = meal['id'].toString();
     final String mealName = meal['name'] ?? 'no_name'.tr();
-    final bool hasOptions = meal['variants'] != null && (meal['variants'] as List).isNotEmpty;
+    final optionsList = meal['options'];
+    print(
+      '📱 DEBUG RENDER MEAL: $mealName has ${optionsList is List ? optionsList.length : 0} options.',
+    );
+    final bool hasOptions = optionsList is List && optionsList.isNotEmpty;
     final String mealDesc = meal['description'] ?? 'no_description'.tr();
     final double mealPrice = meal['price'] != null
         ? double.tryParse(meal['price'].toString()) ?? 0.0
@@ -876,11 +1323,13 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         return null;
       }
     }
+
     final DateTime? discountStart = parseDateTime(meal['discount_start']);
     final DateTime? discountEnd = parseDateTime(meal['discount_end']);
 
     final now = DateTime.now();
-    final bool isPromoActive = priceAfterDiscount != null &&
+    final bool isPromoActive =
+        priceAfterDiscount != null &&
         priceAfterDiscount > 0 &&
         priceAfterDiscount < mealPrice &&
         (discountStart == null || discountStart.isBefore(now)) &&
@@ -899,22 +1348,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
       }
     }
     // 🌟 البحث عن الصورة باسم image أو imageUrl
-    String? rawImage = meal['image'] ?? meal['imageUrl'] ?? meal['photo'];
-
-    String? finalImageUrl;
-    if (rawImage != null && rawImage.isNotEmpty) {
-      // إذا كان الرابط كاملاً من لارافل نستخدمه، وإذا كان مساراً فقط نضيف له رابط السيرفر
-      if (rawImage.startsWith('http')) {
-        finalImageUrl = rawImage;
-      } else {
-        // ⚠️ تأكد من وضع الرابط الأساسي لسيرفرك هنا
-        finalImageUrl =
-            'https://tennessee-refine-ancient-supporters.trycloudflare.com/storage/$rawImage';
-      }
-    }
-
-    // ثم مرر المتغير الجديد
-    final String? imageUrl = finalImageUrl;
+    String? rawImage =
+        meal['image']?.toString() ??
+        meal['image_url']?.toString() ??
+        meal['photo']?.toString();
+    final String? imageUrl = rawImage;
 
     final bool isAvailable = meal['available'] == null
         ? true
@@ -964,7 +1402,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   // 1. صورة الوجبة (مع معالجة الأخطاء)
+                  // 1. صورة الوجبة (مع معالجة الأخطاء)
                   Stack(
                     children: [
                       ClipRRect(
@@ -973,12 +1411,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           bottomRight: Radius.circular(16),
                         ),
                         child: imageUrl != null && imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
+                            ? CachedNetworkImage(
+                                imageUrl: ImageUrlHelper.normalize(imageUrl),
                                 width: 120,
                                 height: 120,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
+                                errorWidget: (context, url, error) {
                                   return Container(
                                     width: 120,
                                     height: 120,
@@ -1002,7 +1440,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 ),
                               ),
                       ),
-                      if (isPromoActive && discountPercent != null && discountPercent > 0)
+                      if (isPromoActive &&
+                          discountPercent != null &&
+                          discountPercent > 0)
                         Positioned(
                           top: 8,
                           right: 8,
@@ -1016,7 +1456,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                               borderRadius: BorderRadius.circular(6),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFFF5555).withOpacity(0.3),
+                                  color: const Color(
+                                    0xFFFF5555,
+                                  ).withOpacity(0.3),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -1112,7 +1554,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                   Text(
                                     '${price.toStringAsFixed(0)} ',
                                     style: TextStyle(
-                                      color: isPromoActive ? const Color(0xFFFF5555) : (isDark ? Colors.white : Colors.black87),
+                                      color: isPromoActive
+                                          ? const Color(0xFFFF5555)
+                                          : (isDark
+                                                ? Colors.white
+                                                : Colors.black87),
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1120,7 +1566,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                   Text(
                                     '${'currency'.tr()} ',
                                     style: TextStyle(
-                                      color: isPromoActive ? const Color(0xFFFF5555) : (isDark ? Colors.white70 : Colors.black54),
+                                      color: isPromoActive
+                                          ? const Color(0xFFFF5555)
+                                          : (isDark
+                                                ? Colors.white70
+                                                : Colors.black54),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -1129,7 +1579,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                     Text(
                                       '${oldPrice.toStringAsFixed(0)} ${'currency'.tr()}',
                                       style: TextStyle(
-                                        color: isDark ? Colors.white38 : Colors.black38,
+                                        color: isDark
+                                            ? Colors.white38
+                                            : Colors.black38,
                                         fontSize: 12,
                                         decoration: TextDecoration.lineThrough,
                                       ),
@@ -1139,89 +1591,19 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                               ),
 
                               // زر الإضافة للسلة (مربوط بـ CartProvider)
-                              hasOptions 
-                                ? ElevatedButton(
-                                    onPressed: (!isAvailable || isClosed) ? null : () => _showMealOptionsBottomSheet(context, meal, imageUrl),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: isClosed ? Colors.grey : const Color(0xFFE63946),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    child: Text(
-                                      isClosed ? 'restaurant_closed'.tr() : 'view_options'.tr(),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                                    ),
-                                  )
-                                : Consumer<CartProvider>(
-                                    builder: (context, cart, child) {
-                                  final qty = cart.getQuantityByMealId(mealId);
-                                  final isItemLoading = cart.isItemLoading(
-                                    mealId,
-                                  );
-
-                                  if (qty == 0) {
-                                    // ─── زر «أضف للسلة» الاعتيادي ───
-                                    return ElevatedButton(
-                                      onPressed: (!isAvailable || isItemLoading || isClosed)
+                              hasOptions
+                                  ? ElevatedButton(
+                                      onPressed: (!isAvailable || isClosed)
                                           ? null
-                                          : () {
-                                              cart
-                                                  .addItem(
-                                                    CartItem(
-                                                      mealId: mealId,
-                                                      name: mealName,
-                                                      price: price,
-                                                      imageUrl:
-                                                          imageUrl ??
-                                                          'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
-                                                      quantity: 1,
-                                                      addons: [],
-                                                    ),
-                                                  )
-                                                  .then((_) {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          'item_added_to_cart'
-                                                              .tr(
-                                                                namedArgs: {
-                                                                  'name':
-                                                                      mealName,
-                                                                },
-                                                              ),
-                                                        ),
-                                                        backgroundColor:
-                                                            Colors.green,
-                                                        duration:
-                                                            const Duration(
-                                                              seconds: 1,
-                                                            ),
-                                                      ),
-                                                    );
-                                                  })
-                                                  .catchError((e) {
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          'add_to_cart_failed'.tr(
-                                                            namedArgs: {
-                                                              'error': e
-                                                                  .toString(),
-                                                            },
-                                                          ),
-                                                        ),
-                                                        backgroundColor:
-                                                            Colors.red.shade700,
-                                                      ),
-                                                    );
-                                                  });
-                                            },
+                                          : () => _showMealOptionsBottomSheet(
+                                              context,
+                                              meal,
+                                              imageUrl,
+                                            ),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: isClosed ? Colors.grey : const Color(0xFFE63946),
+                                        backgroundColor: isClosed
+                                            ? Colors.grey
+                                            : const Color(0xFFE63946),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
                                           vertical: 8,
@@ -1232,106 +1614,222 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                           ),
                                         ),
                                       ),
-                                      child: isItemLoading
-                                          ? const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : Text(
-                                              isClosed ? 'restaurant_closed'.tr() : (isAvailable ? 'add_to_cart'.tr() : 'out_of_stock'.tr()),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                    );
-                                  }
-                                  // ─── عداد +/- ───
-                                  final cartItem = cart.getItemByMealId(mealId);
-                                  final cartItemId = cartItem?.id ?? '';
-                                  return Container(
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: isClosed ? Colors.grey : const Color(0xFFE63946),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        // ─ زر الطرح ─
-                                        SizedBox(
-                                          width: 32,
-                                          height: 36,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            icon: const Icon(
-                                              Icons.remove,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
+                                      child: Text(
+                                        isClosed
+                                            ? 'restaurant_closed'.tr()
+                                            : 'view_options'.tr(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    )
+                                  : Consumer<CartProvider>(
+                                      builder: (context, cart, child) {
+                                        final qty = cart.getQuantityByMealId(
+                                          mealId,
+                                        );
+                                        final isItemLoading = cart
+                                            .isItemLoading(mealId);
+
+                                        if (qty == 0) {
+                                          // ─── زر «أضف للسلة» الاعتيادي ───
+                                          return ElevatedButton(
                                             onPressed:
-                                                isItemLoading ||
-                                                    cartItemId.isEmpty
+                                                (!isAvailable ||
+                                                    isItemLoading ||
+                                                    isClosed)
                                                 ? null
-                                                : () => cart.decrementQuantity(
-                                                    cartItemId,
+                                                : () {
+                                                    cart
+                                                        .addItem(
+                                                          CartItem(
+                                                            mealId: mealId,
+                                                            name: mealName,
+                                                            price: price,
+                                                            imageUrl:
+                                                                imageUrl ??
+                                                                'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
+                                                            quantity: 1,
+                                                            addons: [],
+                                                          ),
+                                                        )
+                                                        .then((_) {
+                                                          ScaffoldMessenger.of(
+                                                            context,
+                                                          ).showSnackBar(
+                                                            SnackBar(
+                                                              content: Text(
+                                                                'item_added_to_cart'.tr(
+                                                                  namedArgs: {
+                                                                    'name':
+                                                                        mealName,
+                                                                  },
+                                                                ),
+                                                              ),
+                                                              backgroundColor:
+                                                                  Colors.green,
+                                                              duration:
+                                                                  const Duration(
+                                                                    seconds: 1,
+                                                                  ),
+                                                            ),
+                                                          );
+                                                        })
+                                                        .catchError((e) {
+                                                          ScaffoldMessenger.of(
+                                                            context,
+                                                          ).showSnackBar(
+                                                            SnackBar(
+                                                              content: Text(
+                                                                'add_to_cart_failed'.tr(
+                                                                  namedArgs: {
+                                                                    'error': e
+                                                                        .toString(),
+                                                                  },
+                                                                ),
+                                                              ),
+                                                              backgroundColor:
+                                                                  Colors
+                                                                      .red
+                                                                      .shade700,
+                                                            ),
+                                                          );
+                                                        });
+                                                  },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: isClosed
+                                                  ? Colors.grey
+                                                  : const Color(0xFFE63946),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
                                                   ),
-                                          ),
-                                        ),
-                                        // ─ الكمية ─
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                          ),
-                                          child: isItemLoading
-                                              ? const SizedBox(
-                                                  width: 14,
-                                                  height: 14,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        color: Colors.white,
-                                                        strokeWidth: 2,
-                                                      ),
-                                                )
-                                              : Text(
-                                                  '$qty',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                        ),
-                                        // ─ زر الجمع ─
-                                        SizedBox(
-                                          width: 32,
-                                          height: 36,
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            icon: const Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 16,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
                                             ),
-                                            onPressed:
-                                                isItemLoading ||
-                                                        cartItemId.isEmpty ||
-                                                        isClosed
-                                                    ? null
-                                                : () => cart.incrementQuantity(
-                                                    cartItemId,
+                                            child: isItemLoading
+                                                ? const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
+                                                  )
+                                                : Text(
+                                                    isClosed
+                                                        ? 'restaurant_closed'
+                                                              .tr()
+                                                        : (isAvailable
+                                                              ? 'add_to_cart'
+                                                                    .tr()
+                                                              : 'out_of_stock'
+                                                                    .tr()),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
+                                          );
+                                        }
+                                        // ─── عداد +/- ───
+                                        final cartItem = cart.getItemByMealId(
+                                          mealId,
+                                        );
+                                        final cartItemId = cartItem?.id ?? '';
+                                        return Container(
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: isClosed
+                                                ? Colors.grey
+                                                : const Color(0xFFE63946),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              // ─ زر الطرح ─
+                                              SizedBox(
+                                                width: 32,
+                                                height: 36,
+                                                child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.remove,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                  onPressed:
+                                                      isItemLoading ||
+                                                          cartItemId.isEmpty
+                                                      ? null
+                                                      : () => cart
+                                                            .decrementQuantity(
+                                                              cartItemId,
+                                                            ),
+                                                ),
+                                              ),
+                                              // ─ الكمية ─
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                    ),
+                                                child: isItemLoading
+                                                    ? const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              color:
+                                                                  Colors.white,
+                                                              strokeWidth: 2,
+                                                            ),
+                                                      )
+                                                    : Text(
+                                                        '$qty',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                              ),
+                                              // ─ زر الجمع ─
+                                              SizedBox(
+                                                width: 32,
+                                                height: 36,
+                                                child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.add,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                  onPressed:
+                                                      isItemLoading ||
+                                                          cartItemId.isEmpty ||
+                                                          isClosed
+                                                      ? null
+                                                      : () => cart
+                                                            .incrementQuantity(
+                                                              cartItemId,
+                                                            ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
                             ],
                           ),
                         ],
@@ -1350,137 +1848,26 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   // ===========================================================================
   // 5a. Bottom Sheet for Options
   // ===========================================================================
-  void _showMealOptionsBottomSheet(BuildContext context, dynamic meal, String? imageUrl) {
-    final List variants = meal['variants'] ?? [];
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1A34).withOpacity(0.9),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'available_options'.tr(),
-                    style: GoogleFonts.cairo(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: variants.length,
-                      separatorBuilder: (context, index) => Divider(color: Colors.white.withOpacity(0.1)),
-                      itemBuilder: (context, index) {
-                        final variant = variants[index];
-                        final String variantName = variant['name']?.toString() ?? '';
-                        final double variantPrice = double.tryParse(variant['price']?.toString() ?? '0') ?? 0.0;
-                        final int variantId = int.tryParse(variant['id']?.toString() ?? '0') ?? 0;
-                        
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                variantName,
-                                style: GoogleFonts.cairo(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${variantPrice.toStringAsFixed(0)} ${'currency'.tr()}',
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFFFF5555),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Consumer<CartProvider>(
-                              builder: (context, cart, child) {
-                                final isItemLoading = cart.isItemLoading(meal['id'].toString(), variantId: variantId);
-                                
-                                return ElevatedButton(
-                                  onPressed: isItemLoading ? null : () {
-                                    cart.addItem(
-                                      CartItem(
-                                        mealId: meal['id'].toString(),
-                                        variantId: variantId,
-                                        variantName: variantName,
-                                        name: meal['name']?.toString() ?? '',
-                                        price: variantPrice,
-                                        imageUrl: imageUrl ?? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80',
-                                        quantity: 1,
-                                      )
-                                    ).then((_) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('item_added_to_cart'.tr(namedArgs: {'name': '${meal['name']} ($variantName)'})),
-                                          backgroundColor: Colors.green,
-                                          duration: const Duration(seconds: 1),
-                                        ),
-                                      );
-                                      Navigator.pop(context);
-                                    }).catchError((e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('add_to_cart_failed'.tr(namedArgs: {'error': e.toString()})),
-                                          backgroundColor: Colors.red.shade700,
-                                        ),
-                                      );
-                                    });
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFE63946),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  child: isItemLoading 
-                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                    : Text('add_to_cart'.tr(), style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                );
-                              }
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+  void _showMealOptionsBottomSheet(
+    BuildContext context,
+    dynamic mealMap,
+    String? imageUrl,
+  ) {
+    if (mealMap is Map<String, dynamic>) {
+      final mealData = Map<String, dynamic>.from(mealMap);
+      if (imageUrl != null &&
+          mealData['image_url'] == null &&
+          mealData['image'] == null) {
+        mealData['image_url'] = imageUrl;
       }
-    );
+      final meal = Meal.fromJson(mealData);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => MealOptionsBottomSheet(meal: meal),
+      );
+    }
   }
 
   // ===========================================================================

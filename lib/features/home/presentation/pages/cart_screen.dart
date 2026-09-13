@@ -358,7 +358,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       children: [
                         if (item.originalPrice != null && item.originalPrice! > item.price) ...[
                           Text(
-                            "${item.originalPrice!.toStringAsFixed(0)}",
+                            "${item.totalOriginalPrice.toStringAsFixed(0)}",
                             style: GoogleFonts.cairo(
                               color: Colors.white38,
                               fontSize: 11,
@@ -368,7 +368,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           const SizedBox(width: 6),
                         ],
                         Text(
-                          "${item.price.toStringAsFixed(0)} ${'currency'.tr()}",
+                          "${item.totalUnitPrice.toStringAsFixed(0)} ${'currency'.tr()}",
                           style: GoogleFonts.cairo(
                             color: (item.originalPrice != null && item.originalPrice! > item.price)
                                 ? const Color(0xFFFF5555)
@@ -379,12 +379,16 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         ),
                       ],
                     ),
-                    if (item.addons.isNotEmpty)
+                    if (item.addons.isNotEmpty || (item.selectedOptions != null && item.selectedOptions!.isNotEmpty))
                       Text(
-                        item.addons.join(" • "),
+                        [
+                          ...item.addons,
+                          if (item.selectedOptions != null)
+                            ...item.selectedOptions!.map((o) => o.name)
+                        ].join(" + "),
                         style: GoogleFonts.cairo(
-                          color: Colors.white38,
-                          fontSize: 10,
+                          color: Colors.white60,
+                          fontSize: 12,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 import 'package:image_picker/image_picker.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:dio/dio.dart';
@@ -13,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/cart_provider.dart';
-import '../../../../providers/schedule_provider.dart';
 import '../../../../providers/order_provider.dart';
 import '../../../../core/api/dio_client.dart';
 import '../../../../core/api/endpoints.dart';
@@ -58,6 +56,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // 🌟 Lifecycle Trigger: Auto-calculate fee when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _calculateDeliveryFee();
+      final cart = Provider.of<CartProvider>(context, listen: false);
+      if (cart.appliedCouponCode != null && _couponController.text.isEmpty) {
+        _couponController.text = cart.appliedCouponCode!;
+      }
     });
   }
 
@@ -77,12 +79,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       final cart = Provider.of<CartProvider>(context, listen: false);
-      double restaurantLat = 0.0;
-      double restaurantLng = 0.0;
 
-      if (cart.items.isNotEmpty) {
-        restaurantLat = cart.items.first.restaurantLat;
-        restaurantLng = cart.items.first.restaurantLng;
+      print('📱 DEBUG RAW RESTAURANT IDs: ${cart.items.map((e) => e.restaurantId).toList()}');
+      final List<int> uniqueRestaurantIds = cart.items.map((item) {
+        final dynamic rId = item.restaurantId;
+        if (rId == null || rId.toString().isEmpty) return 0;
+        if (rId is int) return rId;
+        return int.tryParse(rId.toString()) ?? 0;
+      }).where((id) => id != 0).toSet().toList();
+      print('📱 DEBUG PARSED UNIQUE IDs: $uniqueRestaurantIds');
+
+      if (uniqueRestaurantIds.isEmpty) {
+        setState(() {
+          _isLoadingFee = false;
+          _deliveryFee = 0.0;
+        });
+        return;
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -95,8 +107,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final response = await dio.post(
         '${Endpoints.baseUrl}/delivery/calculate-fee',
         data: {
-          "restaurant_lat": restaurantLat,
-          "restaurant_lng": restaurantLng,
+          "restaurant_ids": uniqueRestaurantIds,
           "customer_lat": customerLat,
           "customer_lng": customerLng,
         },
@@ -128,7 +139,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
-    final double grandTotal = cart.totalPrice + _deliveryFee - cart.discountAmount;
+    final double grandTotal =
+        cart.totalPrice + _deliveryFee - cart.discountAmount;
 
     return Scaffold(
       body: Directionality(
@@ -184,6 +196,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             _buildOrderTable(cart),
                             const SizedBox(height: 10),
                             _buildOrderSummary(
+                              cart,
                               cart.totalPrice,
                               _deliveryFee,
                               cart.discountAmount,
@@ -418,7 +431,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                "promo_code".tr().isNotEmpty && "promo_code".tr() != "promo_code"
+                "promo_code".tr().isNotEmpty &&
+                        "promo_code".tr() != "promo_code"
                     ? "promo_code".tr()
                     : "رمز الترويج / الكوبون",
                 style: GoogleFonts.cairo(
@@ -437,19 +451,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.05),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
                   child: TextField(
                     controller: _couponController,
+                    textCapitalization: TextCapitalization.characters,
+                    readOnly: cart.appliedCouponCode != null,
                     enabled: cart.appliedCouponCode == null,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.1,
                     ),
                     decoration: InputDecoration(
-                      hintText: "enter_coupon_hint".tr().isNotEmpty && "enter_coupon_hint".tr() != "enter_coupon_hint"
+                      hintText:
+                          "enter_coupon_hint".tr().isNotEmpty &&
+                              "enter_coupon_hint".tr() != "enter_coupon_hint"
                           ? "enter_coupon_hint".tr()
                           : "أدخل رمز الكوبون",
                       hintStyle: GoogleFonts.cairo(
@@ -503,7 +521,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  "please_enter_coupon".tr().isNotEmpty && "please_enter_coupon".tr() != "please_enter_coupon"
+                                  "please_enter_coupon".tr().isNotEmpty &&
+                                          "please_enter_coupon".tr() !=
+                                              "please_enter_coupon"
                                       ? "please_enter_coupon".tr()
                                       : "يرجى إدخال رمز الكوبون أولاً",
                                   style: GoogleFonts.cairo(color: Colors.white),
@@ -516,22 +536,53 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           setState(() {
                             _isApplyingCoupon = true;
                           });
-                          final (success, message) = await cart.applyCoupon(code);
-                          if (mounted) {
-                            setState(() {
-                              _isApplyingCoupon = false;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  message,
-                                  style: GoogleFonts.cairo(color: Colors.white),
-                                ),
-                                backgroundColor: success
-                                    ? Colors.green.shade700
-                                    : Colors.red.shade700,
-                              ),
+
+                          try {
+                            final int restaurantId = cart.items.isNotEmpty
+                                ? (int.tryParse(cart.items.first.restaurantId) ?? 0)
+                                : 0;
+                            await cart.applyCoupon(
+                              code,
+                              cart.totalPrice,
+                              restaurantId,
                             );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "coupon_applied_success".tr().isNotEmpty &&
+                                            "coupon_applied_success".tr() !=
+                                                "coupon_applied_success"
+                                        ? "coupon_applied_success".tr()
+                                        : "تم تطبيق الكوبون بنجاح",
+                                    style: GoogleFonts.cairo(color: Colors.white),
+                                  ),
+                                  backgroundColor: Colors.green.shade700,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              final errorText = e
+                                  .toString()
+                                  .replaceFirst('Exception: ', '');
+                              _couponController.clear();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    errorText,
+                                    style: GoogleFonts.cairo(color: Colors.white),
+                                  ),
+                                  backgroundColor: Colors.red.shade700,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() {
+                                _isApplyingCoupon = false;
+                              });
+                            }
                           }
                         },
                   style: ElevatedButton.styleFrom(
@@ -577,12 +628,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  "coupon_applied_success".tr().isNotEmpty && "coupon_applied_success".tr() != "coupon_applied_success"
-                      ? "coupon_applied_success".tr(namedArgs: {
-                          'code': cart.appliedCouponCode!,
-                          'discount': cart.discountAmount.toInt().toString(),
-                          'currency': 'currency'.tr(),
-                        })
+                  "coupon_applied_success".tr().isNotEmpty &&
+                          "coupon_applied_success".tr() !=
+                              "coupon_applied_success"
+                      ? "coupon_applied_success".tr(
+                          namedArgs: {
+                            'code': cart.appliedCouponCode!,
+                            'discount': cart.discountAmount.toInt().toString(),
+                            'currency': 'currency'.tr(),
+                          },
+                        )
                       : "تم تطبيق الكوبون (${cart.appliedCouponCode}) بنجاح خصم ${cart.discountAmount.toInt()} ${'currency'.tr()}",
                   style: GoogleFonts.cairo(
                     color: Colors.green,
@@ -823,7 +878,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         Divider(color: Colors.white.withOpacity(0.1), height: 1),
         ...cart.items.map((item) {
-          final double total = item.price * item.quantity;
+          final double total = item.totalUnitPrice * item.quantity;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             child: Row(
@@ -831,17 +886,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               children: [
                 Expanded(
                   flex: 3,
-                  child: Text(
-                    item.name,
-                    style: GoogleFonts.cairo(color: Colors.white, fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (item.addons.isNotEmpty ||
+                          (item.selectedOptions != null &&
+                              item.selectedOptions!.isNotEmpty))
+                        Text(
+                          [
+                            ...item.addons,
+                            if (item.selectedOptions != null)
+                              ...item.selectedOptions!.map((o) => o.name),
+                          ].join(" + "),
+                          style: GoogleFonts.cairo(
+                            color: Colors.white60,
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
                 Expanded(
                   flex: 1,
                   child: Text(
-                    "${item.price.toInt()}",
+                    "${item.totalUnitPrice.toInt()}",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       color: Colors.white,
@@ -881,11 +960,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildOrderSummary(
+    CartProvider cart,
     double subtotal,
     double deliveryFee,
     double discountAmount,
     double grandTotal,
   ) {
+    final int restaurantCount = cart.items.map((item) => item.restaurantId).toSet().length;
+
     return Column(
       children: [
         Padding(
@@ -966,6 +1048,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
         ),
+        if (restaurantCount > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 10, right: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  "تتضمن رسوم التوقف لمطاعم متعددة",
+                  style: GoogleFonts.cairo(color: Colors.white54, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
         if (_feeErrorMessage != null)
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 10, right: 10),
@@ -985,7 +1080,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   "discount".tr().isNotEmpty && "discount".tr() != "discount"
                       ? "discount".tr()
                       : "الخصم",
-                  style: GoogleFonts.cairo(color: Colors.redAccent, fontSize: 13),
+                  style: GoogleFonts.cairo(
+                    color: Colors.redAccent,
+                    fontSize: 13,
+                  ),
                 ),
                 Row(
                   children: [
@@ -1342,22 +1440,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       String restaurantId = cart.items.isNotEmpty
                           ? cart.items.first.restaurantId
                           : '';
-                      List<Map<String, dynamic>> itemsPayload = cart.items
-                          .map((item) {
-                            final map = <String, dynamic>{
-                              'quantity': item.quantity,
-                              'price': item.price,
-                            };
-                            if (item.type == 'combo_offer' || item.offerId != null) {
-                              final rawOfferId = item.offerId ?? item.id;
-                              map['offer_id'] = int.tryParse(rawOfferId) ?? rawOfferId;
-                            } else {
-                              final rawMealId = item.mealId.isNotEmpty ? item.mealId : item.id;
-                              map['meal_id'] = int.tryParse(rawMealId) ?? rawMealId;
-                            }
-                            return map;
-                          })
-                          .toList();
+                      List<Map<String, dynamic>> itemsPayload = cart.items.map((
+                        item,
+                      ) {
+                        final isCombo = item.type == 'combo_offer';
+
+                        final map = <String, dynamic>{
+                          'quantity': item.quantity,
+                          'price': item.totalUnitPrice, // Send the true price
+                        };
+
+                        if (isCombo) {
+                          map['offer_id'] =
+                              int.tryParse(item.offerId ?? item.id) ??
+                              item.offerId ??
+                              item.id;
+                        } else {
+                          final rawMealId = item.mealId.isNotEmpty
+                              ? item.mealId
+                              : item.id;
+                          map['meal_id'] = int.tryParse(rawMealId) ?? rawMealId;
+                          if (item.variantId != null) {
+                            map['variant_id'] = item.variantId;
+                          }
+                          if (item.selectedOptions != null &&
+                              item.selectedOptions!.isNotEmpty) {
+                            map['option_ids'] = item.selectedOptions!
+                                .map((opt) => opt.id)
+                                .toList();
+                          }
+                        }
+                        return map;
+                      }).toList();
 
                       final orderProv = context.read<OrderProvider>();
                       final (
@@ -1377,6 +1491,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         customerLat: customerLat,
                         customerLng: customerLng,
                         couponCode: cart.appliedCouponCode,
+                        discountAmount: cart.discountAmount,
                       );
 
                       if (!context.mounted) return;
@@ -1385,7 +1500,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         // Extract required fields before clearing cart!
                         final double subtotal = cart.totalPrice;
                         final double discount = cart.discountAmount;
-                        final double grandTotal = subtotal + deliveryFee - discount;
+                        final double grandTotal =
+                            subtotal + deliveryFee - discount;
                         final String? couponCode = cart.appliedCouponCode;
                         final String restName = cart.items.isNotEmpty
                             ? cart.items.first.restaurantName
@@ -1820,6 +1936,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
+                          final minimumAllowedTime = DateTime.now().add(
+                            const Duration(minutes: 1),
+                          );
+
+                          if (combinedDateTime.isBefore(minimumAllowedTime)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "invalid_schedule_time".tr().isNotEmpty &&
+                                          "invalid_schedule_time".tr() !=
+                                              "invalid_schedule_time"
+                                      ? "invalid_schedule_time".tr()
+                                      : "يرجى اختيار وقت يبعد 30 دقيقة على الأقل من الآن",
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                backgroundColor: Colors.red.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                margin: EdgeInsets.only(
+                                  bottom:
+                                      MediaQuery.of(context).size.height *
+                                      0.4, // Show above bottom sheet
+                                  left: 20,
+                                  right: 20,
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
                           setState(() {
                             _isScheduled = true;
                             _scheduledDateTime = combinedDateTime;

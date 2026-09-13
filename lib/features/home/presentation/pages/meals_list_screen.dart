@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../providers/restaurant_provider.dart';
 import '../../../../models/restaurant_model.dart';
+import '../widgets/meal_options_bottom_sheet.dart';
 
 class MealsListScreen extends ConsumerStatefulWidget {
   const MealsListScreen({super.key});
@@ -295,6 +296,7 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
   // 3. كرت الوجبة (Glassmorphism Style)
   // ===========================================================================
   Widget _buildMealCard(Meal meal) {
+    print('📱 DEBUG RENDER MEAL: ${meal.name} has ${meal.options?.length ?? 0} options.');
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final String name = meal.name.isNotEmpty ? meal.name : 'meal_placeholder'.tr();
     final String image =
@@ -531,26 +533,62 @@ class _MealsListScreenState extends ConsumerState<MealsListScreen> {
                         // الأسعار
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            // السعر القديم (مشطوب)
-                            if (oldPrice != null)
-                              Text(
-                                "${oldPrice.toStringAsFixed(0)} " + "currency".tr(),
-                                style: GoogleFonts.poppins(
-                                  color: isDark ? Colors.white38 : Colors.black38,
-                                  fontSize: 11,
-                                  decoration: TextDecoration.lineThrough,
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // السعر القديم (مشطوب)
+                                if (oldPrice != null)
+                                  Text(
+                                    "${oldPrice.toStringAsFixed(0)} " + "currency".tr(),
+                                    style: GoogleFonts.poppins(
+                                      color: isDark ? Colors.white38 : Colors.black38,
+                                      fontSize: 11,
+                                      decoration: TextDecoration.lineThrough,
+                                      height: 1,
+                                    ),
+                                  ),
+                                // السعر الجديد
+                                Text(
+                                  "${price.toStringAsFixed(0)} " + "currency".tr(),
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFFFF5555),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (meal.options != null && meal.options!.isNotEmpty)
+                              GestureDetector(
+                                onTap: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    builder: (context) => MealOptionsBottomSheet(meal: meal),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF0F55E8), Color(0xFF5D12D2)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    "options".tr(),
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            // السعر الجديد
-                            Text(
-                              "${price.toStringAsFixed(0)} " + "currency".tr(),
-                              style: GoogleFonts.poppins(
-                                color: const Color(0xFFFF5555),
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                           ],
                         ),
                       ],

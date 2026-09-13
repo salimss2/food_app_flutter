@@ -7,6 +7,8 @@ import 'package:path/path.dart';
 import '../../../../core/widgets/custom_background.dart';
 import '../../../../core/widgets/global_exit_wrapper.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/utils/image_url_helper.dart';
 
 class OrderStatusScreen extends StatelessWidget {
   final Map<String, dynamic> orderData;
@@ -812,7 +814,7 @@ class OrderStatusScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               image: orderData['restaurant']?['image_url'] != null
                   ? DecorationImage(
-                      image: NetworkImage(orderData['restaurant']['image_url']),
+                      image: CachedNetworkImageProvider(ImageUrlHelper.normalize(orderData['restaurant']['image_url'].toString())),
                       fit: BoxFit.cover,
                     )
                   : null,

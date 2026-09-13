@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide Consumer, Provider;
 
 import '../../../../core/widgets/custom_background.dart';
+import '../../../../core/widgets/shared_bottom_nav_bar.dart';
 import '../../../../providers/favorites_provider.dart';
 import '../../../../providers/restaurant_provider.dart';
 
@@ -79,7 +80,7 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
                 // --- شريط التنقل السفلي العائم ---
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: _buildFloatingNavBar(),
+                  child: const SharedBottomNavBar(selectedIndex: 1),
                 ),
               ],
             ),
@@ -452,150 +453,4 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
     );
   }
 
-  // ===========================================================================
-  // 4. شريط التنقل السفلي
-  // ===========================================================================
-  Widget _buildFloatingNavBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
-      child: Container(
-        height: 75,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(35),
-          boxShadow: [
-            BoxShadow(
-              color: isDark ? const Color.fromARGB(255, 54, 37, 124).withOpacity(0.8) : Colors.black.withOpacity(0.1),
-              blurRadius: 25,
-              offset: const Offset(0, 10),
-              spreadRadius: -5,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(35),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1A34).withOpacity(0.85) : Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(
-                  color: isDark ? Colors.white.withOpacity(0.7) : Colors.black.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _navItem(
-                    selectedIcon: Icons.manage_search,
-                    unselectedIcon: Icons.manage_search_outlined,
-                    label: "search".tr(),
-                    index: 1,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.shopping_cart,
-                    unselectedIcon: Icons.shopping_cart_outlined,
-                    label: "cart".tr(),
-                    index: 2,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.home,
-                    unselectedIcon: Icons.home_outlined,
-                    label: "home".tr(),
-                    index: 0,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.receipt,
-                    unselectedIcon: Icons.receipt_outlined,
-                    label: "my_orders".tr(),
-                    index: 3,
-                  ),
-                  _navItem(
-                    selectedIcon: Icons.person,
-                    unselectedIcon: Icons.person_outline,
-                    label: "my_account".tr(),
-                    index: 4,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===========================================================================
-  // منطق الانتقال بين الصفحات
-  // ===========================================================================
-  Widget _navItem({
-    required IconData selectedIcon,
-    required IconData unselectedIcon,
-    required String label,
-    required int index,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isSelected = _selectedIndex == index;
-
-    return GestureDetector(
-      onTap: () {
-        // إذا ضغط المستخدم على نفس الصفحة التي هو فيها، لا تفعل شيئاً
-        if (isSelected) return;
-
-        if (index == 0) {
-          // الانتقال إلى الصفحة الرئيسية
-          context.go('/home');
-        } else if (index == 2) {
-          // الانتقال إلى سلة المشتريات
-          context.push('/cart');
-        } else if (index == 4) {
-          // الانتقال إلى صفحة الملف الشخصي
-          context.go('/profile');
-        } else {
-          // للصفحات الأخرى (مثل السلة والطلبات)، نحدث الـ UI مؤقتاً
-          setState(() => _selectedIndex = index);
-        }
-      },
-      child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSelected)
-              ShaderMask(
-                shaderCallback: (Rect bounds) {
-                  return const LinearGradient(
-                    colors: [
-                      Color(0xFF0F55E8),
-                      Color.fromARGB(255, 130, 87, 199),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ).createShader(bounds);
-                },
-                child: Icon(selectedIcon, color: Colors.white, size: 26),
-              )
-            else
-              Icon(unselectedIcon, color: isDark ? Colors.white54 : Colors.black54, size: 26),
-
-            const SizedBox(height: 4),
-
-            Text(
-              label,
-              style: GoogleFonts.cairo(
-                color: isSelected ? const Color(0xFF0F55E8) : (isDark ? Colors.white54 : Colors.black54),
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

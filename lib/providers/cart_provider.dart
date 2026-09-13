@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../core/api/dio_client.dart';
 import '../core/api/endpoints.dart';
+import '../models/restaurant_model.dart';
 
 class CartItem {
   final String id;
@@ -14,16 +15,22 @@ class CartItem {
   final List<dynamic>? includedMeals;
   final String name;
   final double price;
+  final double? unitPrice;
   final double? originalPrice;
   final String imageUrl;
   int quantity;
   final List<String> addons;
+  final List<MealOption>? selectedOptions;
   final bool isRestaurantOpen;
   final double restaurantLat;
   final double restaurantLng;
   final String restaurantId;
   final String restaurantName;
   final String restaurantAddress;
+
+  double get effectiveUnitPrice => unitPrice ?? price;
+  double get totalUnitPrice => effectiveUnitPrice + (selectedOptions?.fold(0.0, (sum, option) => sum! + (option.price)) ?? 0);
+  double get totalOriginalPrice => (originalPrice != null) ? originalPrice! + (selectedOptions?.fold(0.0, (sum, option) => sum! + (option.price)) ?? 0) : totalUnitPrice;
 
   CartItem({
     this.id = '',
@@ -35,10 +42,12 @@ class CartItem {
     this.includedMeals,
     required this.name,
     required this.price,
+    this.unitPrice,
     this.originalPrice,
     required this.imageUrl,
     this.quantity = 1,
     this.addons = const [],
+    this.selectedOptions,
     this.isRestaurantOpen = true,
     this.restaurantLat = 0.0,
     this.restaurantLng = 0.0,
@@ -52,7 +61,7 @@ class CartItem {
     bool isRestOpen = true; // Default to true if missing (Safety Net)
     double restLat = 0.0;
     double restLng = 0.0;
-    String restId = '';
+    String restId = json['restaurant_id']?.toString() ?? json['meal']?['restaurant_id']?.toString() ?? '';
     String restName = '';
     String restAddress = '';
 
@@ -77,14 +86,17 @@ class CartItem {
                 '0',
           ) ??
           0.0;
-      restId = restaurantData['id']?.toString() ?? '';
+      if (restId.isEmpty) {
+        restId = restaurantData['id']?.toString() ?? '';
+      }
       restName = restaurantData['name']?.toString() ?? '';
       restAddress = restaurantData['address']?.toString() ?? '';
     }
 
     final double basePrice =
         double.tryParse(
-          json['price']?.toString() ??
+          json['unit_price']?.toString() ??
+              json['price']?.toString() ??
               json['meal']?['price']?.toString() ??
               json['subtotal']?.toString() ??
               '0',
@@ -93,8 +105,13 @@ class CartItem {
 
     // Parse discount properties safely
     final double? priceAfterDiscount = double.tryParse(
-      json['price_after_discount']?.toString() ??
+      json['offer_price']?.toString() ??
+          json['price_after_discount']?.toString() ??
+          json['discount_price']?.toString() ??
+          json['price_override']?.toString() ??
           json['meal']?['price_after_discount']?.toString() ??
+          json['offer']?['offer_price']?.toString() ??
+          json['offer']?['price']?.toString() ??
           '',
     );
 
@@ -122,15 +139,30 @@ class CartItem {
         (discountStart == null || discountStart.isBefore(now)) &&
         (discountEnd == null || discountEnd.isAfter(now));
 
-    final double effectivePrice = isPromoActive
-        ? priceAfterDiscount
-        : basePrice;
-    final double? originalPrice = isPromoActive ? basePrice : null;
-
     final String itemType = json['type']?.toString() ?? 'meal';
     final String? parsedOfferId = json['offer_id']?.toString() ?? json['offer']?['id']?.toString();
     final int? parsedVariantId = json['variant_id'] != null ? int.tryParse(json['variant_id'].toString()) : null;
     final String? parsedVariantName = json['variant_name']?.toString() ?? json['variant']?['name']?.toString();
+
+    final double effectivePrice = isPromoActive
+        ? priceAfterDiscount
+        : (priceAfterDiscount != null && priceAfterDiscount > 0 && (parsedOfferId != null || itemType == 'combo_offer' || itemType == 'offer')
+            ? priceAfterDiscount
+            : basePrice);
+    final double? originalPrice = (isPromoActive || (priceAfterDiscount != null && priceAfterDiscount > 0 && priceAfterDiscount < basePrice))
+        ? basePrice
+        : double.tryParse(json['original_price']?.toString() ?? '');
+    
+    List<MealOption>? parsedSelectedOptions;
+    if (json['options'] != null) {
+      parsedSelectedOptions = (json['options'] as List)
+          .map((e) => MealOption.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (json['selected_options'] != null) {
+      parsedSelectedOptions = (json['selected_options'] as List)
+          .map((e) => MealOption.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
     
     List<dynamic>? parsedMeals;
     final rawMeals = json['included_meals'] ?? json['meals'] ?? json['offer']?['meals'] ?? json['offer']?['included_meals'];
@@ -171,12 +203,14 @@ class CartItem {
       includedMeals: parsedMeals,
       name: parsedName,
       price: effectivePrice,
+      unitPrice: effectivePrice,
       originalPrice: originalPrice,
       imageUrl: parsedImageUrl,
       quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
       addons:
           (json['addons'] as List?)?.map((e) => e.toString()).toList() ??
           const [],
+      selectedOptions: parsedSelectedOptions,
       isRestaurantOpen: isRestOpen,
       restaurantLat: restLat,
       restaurantLng: restLng,
@@ -204,6 +238,10 @@ class CartProvider extends ChangeNotifier {
 
   // Track loading state for specific meals to avoid global loading flicker
   final Set<String> _loadingItemIds = {};
+
+  // Memory cache of price overrides and original prices to ensure promotional meal prices are never lost across fetchCart
+  final Map<String, double> _priceOverrides = {};
+  final Map<String, double> _originalPrices = {};
 
   List<Map<String, dynamic>>? _cachedRestaurants;
 
@@ -253,10 +291,21 @@ class CartProvider extends ChangeNotifier {
           final cartItem = CartItem.fromJson(item);
           String mealName = cartItem.name;
           String mealImage = cartItem.imageUrl;
-          double itemPrice = cartItem.price;
+          double itemPrice = cartItem.effectiveUnitPrice;
           double? originalPrice = cartItem.originalPrice;
 
-          if (cartItem.type != 'combo_offer' && _cachedRestaurants != null) {
+          // Check if there is an explicit price override for this item
+          final double? override = _priceOverrides[cartItem.id] ??
+              _priceOverrides[cartItem.mealId] ??
+              (cartItem.offerId != null ? _priceOverrides[cartItem.offerId!] : null);
+          if (override != null && override > 0) {
+            final double? orig = _originalPrices[cartItem.id] ??
+                _originalPrices[cartItem.mealId] ??
+                (cartItem.offerId != null ? _originalPrices[cartItem.offerId!] : null) ??
+                (itemPrice > override ? itemPrice : originalPrice);
+            itemPrice = override;
+            originalPrice = orig;
+          } else if (cartItem.type != 'combo_offer' && _cachedRestaurants != null) {
             final String mealId = cartItem.mealId;
             for (var r in _cachedRestaurants!) {
               for (var m in (r['menu'] ?? [])) {
@@ -321,8 +370,10 @@ class CartProvider extends ChangeNotifier {
             includedMeals: cartItem.includedMeals,
             quantity: cartItem.quantity,
             price: itemPrice,
+            unitPrice: itemPrice,
             originalPrice: originalPrice,
             addons: cartItem.addons,
+            selectedOptions: cartItem.selectedOptions,
             name: mealName,
             imageUrl: mealImage,
             isRestaurantOpen: cartItem.isRestaurantOpen,
@@ -334,7 +385,7 @@ class CartProvider extends ChangeNotifier {
 
         _totalAmount = _items.fold(
           0.0,
-          (sum, item) => sum + (item.price * item.quantity),
+          (sum, item) => sum + (item.totalUnitPrice * item.quantity),
         );
         if (_items.isEmpty) {
           _appliedCouponCode = null;
@@ -358,7 +409,17 @@ class CartProvider extends ChangeNotifier {
   Map<String, dynamic>? _restaurant;
   Map<String, dynamic>? get restaurant => _restaurant;
 
-  Future<void> addItem(CartItem item, {Map<String, dynamic>? restaurant}) async {
+  Future<void> addItem(
+    CartItem item, {
+    Map<String, dynamic>? restaurant,
+    double? priceOverride,
+  }) async {
+    final double effectivePrice = priceOverride ?? item.unitPrice ?? item.price;
+    final double? origPrice = item.originalPrice ??
+        ((priceOverride != null && priceOverride < item.price)
+            ? item.price
+            : null);
+
     if (restaurant != null) {
       final currentRestId = _restaurant?['id']?.toString() ?? (_items.isNotEmpty ? _items.first.restaurantId : null);
       if (_items.isEmpty) {
@@ -368,20 +429,55 @@ class CartProvider extends ChangeNotifier {
       }
     }
 
+    String optionsHash = '';
+    if (item.selectedOptions != null && item.selectedOptions!.isNotEmpty) {
+      final optionIds = item.selectedOptions!.map((e) => e.id).toList()..sort();
+      optionsHash = '_' + optionIds.join('_');
+    }
+
     final String trackId = item.type == 'combo_offer' 
         ? (item.offerId ?? item.id) 
-        : (item.variantId != null ? '${item.mealId}_${item.variantId}' : item.mealId);
+        : (item.variantId != null ? '${item.mealId}_${item.variantId}$optionsHash' : '${item.mealId}$optionsHash');
     _loadingItemIds.add(trackId);
     notifyListeners();
 
+    // Cache the price override for this item/meal/offer
+    if (priceOverride != null || (origPrice != null && effectivePrice < origPrice)) {
+      if (item.id.isNotEmpty) _priceOverrides[item.id] = effectivePrice;
+      if (item.mealId.isNotEmpty) _priceOverrides[item.mealId] = effectivePrice;
+      if (item.offerId != null && item.offerId!.isNotEmpty) {
+        _priceOverrides[item.offerId!] = effectivePrice;
+      }
+      _priceOverrides[trackId] = effectivePrice;
+
+      if (origPrice != null) {
+        if (item.id.isNotEmpty) _originalPrices[item.id] = origPrice;
+        if (item.mealId.isNotEmpty) _originalPrices[item.mealId] = origPrice;
+        if (item.offerId != null && item.offerId!.isNotEmpty) {
+          _originalPrices[item.offerId!] = origPrice;
+        }
+        _originalPrices[trackId] = origPrice;
+      }
+    }
+
     try {
-      final data = item.type == 'combo_offer' 
-          ? {"offer_id": item.offerId, "quantity": item.quantity}
-          : {
-              "meal_id": item.mealId, 
-              "quantity": item.quantity,
-              if (item.variantId != null) "variant_id": item.variantId
-            };
+      final String? currentRestId = item.restaurantId.isNotEmpty 
+          ? item.restaurantId 
+          : restaurant?['id']?.toString() ?? _restaurant?['id']?.toString();
+          
+      final Map<String, dynamic> data = {
+        if (item.mealId.isNotEmpty)
+          "meal_id": int.tryParse(item.mealId) ?? item.mealId,
+        "quantity": item.quantity,
+        if (currentRestId != null && currentRestId.isNotEmpty) 
+          "restaurant_id": int.tryParse(currentRestId) ?? currentRestId,
+        if (item.variantId != null) "variant_id": item.variantId,
+        if (item.selectedOptions != null && item.selectedOptions!.isNotEmpty)
+          "option_ids": item.selectedOptions!.map((o) => o.id).toList(),
+        if (effectivePrice > 0) "price": effectivePrice,
+        if (effectivePrice > 0) "unit_price": effectivePrice,
+        if (effectivePrice > 0) "price_override": effectivePrice,
+      };
 
       await _dio.post(
         Endpoints.addToCart,
@@ -405,7 +501,17 @@ class CartProvider extends ChangeNotifier {
       (element) => element.id == id,
       orElse: () => CartItem(mealId: '', name: '', price: 0, imageUrl: ''),
     );
-    if (item.mealId.isNotEmpty) _loadingItemIds.add(item.mealId);
+    _priceOverrides.remove(id);
+    _originalPrices.remove(id);
+    if (item.mealId.isNotEmpty) {
+      _loadingItemIds.add(item.mealId);
+      _priceOverrides.remove(item.mealId);
+      _originalPrices.remove(item.mealId);
+    }
+    if (item.offerId != null && item.offerId!.isNotEmpty) {
+      _priceOverrides.remove(item.offerId!);
+      _originalPrices.remove(item.offerId!);
+    }
     notifyListeners();
 
     try {
@@ -424,9 +530,14 @@ class CartProvider extends ChangeNotifier {
   Future<void> incrementQuantity(String id) async {
     final index = _items.indexWhere((item) => item.id == id);
     if (index >= 0) {
+      String optionsHash = '';
+      if (_items[index].selectedOptions != null && _items[index].selectedOptions!.isNotEmpty) {
+        final optionIds = _items[index].selectedOptions!.map((e) => e.id).toList()..sort();
+        optionsHash = '_' + optionIds.join('_');
+      }
       final trackId = _items[index].type == 'combo_offer' 
           ? (_items[index].offerId ?? id) 
-          : (_items[index].variantId != null ? '${_items[index].mealId}_${_items[index].variantId}' : _items[index].mealId);
+          : (_items[index].variantId != null ? '${_items[index].mealId}_${_items[index].variantId}$optionsHash' : '${_items[index].mealId}$optionsHash');
       final newQuantity = _items[index].quantity + 1;
       await _updateItemQuantity(id, trackId, newQuantity);
     }
@@ -435,9 +546,14 @@ class CartProvider extends ChangeNotifier {
   Future<void> decrementQuantity(String id) async {
     final index = _items.indexWhere((item) => item.id == id);
     if (index >= 0) {
+      String optionsHash = '';
+      if (_items[index].selectedOptions != null && _items[index].selectedOptions!.isNotEmpty) {
+        final optionIds = _items[index].selectedOptions!.map((e) => e.id).toList()..sort();
+        optionsHash = '_' + optionIds.join('_');
+      }
       final trackId = _items[index].type == 'combo_offer' 
           ? (_items[index].offerId ?? id) 
-          : (_items[index].variantId != null ? '${_items[index].mealId}_${_items[index].variantId}' : _items[index].mealId);
+          : (_items[index].variantId != null ? '${_items[index].mealId}_${_items[index].variantId}$optionsHash' : '${_items[index].mealId}$optionsHash');
       final newQuantity = _items[index].quantity - 1;
       if (newQuantity > 0) {
         await _updateItemQuantity(id, trackId, newQuantity);
@@ -473,6 +589,8 @@ class CartProvider extends ChangeNotifier {
 
   Future<void> clearCart() async {
     isLoading = true;
+    _priceOverrides.clear();
+    _originalPrices.clear();
     notifyListeners();
 
     try {
@@ -500,43 +618,102 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  Future<(bool, String)> applyCoupon(String code) async {
+  Future<void> applyCoupon(String code, double subtotal, int restaurantId) async {
     isLoading = true;
     notifyListeners();
     try {
       final response = await _dio.post(
-        Endpoints.applyCoupon,
+        Endpoints.validateCoupon,
         data: {
           "code": code,
-          "subtotal": _totalAmount,
+          "subtotal": subtotal,
+          "restaurant_id": restaurantId,
         },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data;
         final couponData = data['data'] ?? data['coupon'] ?? data;
-        
-        final type = couponData['discount_type']?.toString().toLowerCase() ?? 
-                     couponData['type']?.toString().toLowerCase();
-        final valNum = couponData['discount_value'] ?? couponData['value'] ?? couponData['discount'];
+
+        final double? returnedDiscountAmount = double.tryParse(
+          couponData['discount_amount']?.toString() ??
+              couponData['discount']?.toString() ??
+              data['discount_amount']?.toString() ??
+              data['discount']?.toString() ??
+              '',
+        );
+
+        final type = couponData['discount_type']?.toString().toLowerCase() ??
+            couponData['type']?.toString().toLowerCase();
+        final valNum = couponData['discount_value'] ??
+            couponData['value'] ??
+            couponData['discount'];
         final double val = double.tryParse(valNum?.toString() ?? '0') ?? 0.0;
 
         _appliedCouponCode = code;
         _couponDiscountType = type;
         _couponDiscountValue = val;
-        
-        _recalculateDiscount();
+
+        if (returnedDiscountAmount != null && returnedDiscountAmount > 0) {
+          _discountAmount = returnedDiscountAmount;
+        } else {
+          _recalculateDiscount();
+        }
         notifyListeners();
-        return (true, data['message']?.toString() ?? 'تم تطبيق الكوبون بنجاح');
+        return;
+      } else {
+        final msg =
+            response.data?['message']?.toString() ?? 'فشل تطبيق الكوبون';
+        throw Exception(msg);
       }
-      return (false, 'فشل تطبيق الكوبون');
     } on DioException catch (e) {
       debugPrint('API Error in applyCoupon: $e');
-      final msg = e.response?.data?['message']?.toString() ?? e.message ?? 'حدث خطأ أثناء تطبيق الكوبون';
-      return (false, msg);
+      String errorMessage = '';
+      if (e.response?.data is Map) {
+        final data = e.response!.data as Map<String, dynamic>;
+        if (data['errors'] != null) {
+          if (data['errors'] is Map) {
+            final errorsMap = data['errors'] as Map;
+            final firstKey = errorsMap.keys.firstOrNull;
+            if (firstKey != null) {
+              final val = errorsMap[firstKey];
+              if (val is List && val.isNotEmpty) {
+                errorMessage = val.first.toString();
+              } else if (val is String) {
+                errorMessage = val;
+              }
+            }
+          } else if (data['errors'] is List &&
+              (data['errors'] as List).isNotEmpty) {
+            errorMessage = (data['errors'] as List).first.toString();
+          } else if (data['errors'] is String) {
+            errorMessage = data['errors'];
+          }
+        }
+        if (errorMessage.isEmpty && data['message'] != null) {
+          errorMessage = data['message'].toString();
+        }
+      }
+      if (errorMessage.isEmpty) {
+        errorMessage = e.message ?? 'حدث خطأ أثناء تطبيق الكوبون';
+      }
+      _appliedCouponCode = null;
+      _discountAmount = 0.0;
+      _couponDiscountType = null;
+      _couponDiscountValue = 0.0;
+      notifyListeners();
+      throw Exception(errorMessage);
     } catch (e) {
       debugPrint('Error in applyCoupon: $e');
-      return (false, e.toString());
+      _appliedCouponCode = null;
+      _discountAmount = 0.0;
+      _couponDiscountType = null;
+      _couponDiscountValue = 0.0;
+      notifyListeners();
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception(e.toString());
     } finally {
       isLoading = false;
       notifyListeners();
